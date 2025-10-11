@@ -5,6 +5,7 @@ import {PredictronArena, Side} from "../contracts/PredictronArena.sol";
 import {HederaHelperConfig} from "../script/HederaHelperConfig.s.sol";
 import {MockV3Aggregator} from "../contracts/mocks/MockV3Aggregator.sol";
 import {Test} from "forge-std/Test.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 contract PredictronArenaTest is Test {
     PredictronArena public predictronArena;
@@ -318,6 +319,16 @@ contract PredictronArenaTest is Test {
 
     function testGetLatestPrice() public view {
         assertEq(predictronArena.getLatestPrice(), 3e7);
+    }
+
+    function test_PauseStopsActions() public {
+        predictronArena.pause();
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        predictronArena.placeBet{value: 5e8}(Side.Up);
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        predictronArena.startRound(Side.Down);
+        predictronArena.unpause();
+        predictronArena.placeBet{value: 5e8}(Side.Up);
     }
 
     receive() external payable {}

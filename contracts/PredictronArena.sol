@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 
 enum Side {
@@ -12,7 +13,7 @@ enum Side {
     Down
 }
 
-contract PredictronArena is Ownable, ReentrancyGuard, AccessControl {
+contract PredictronArena is Ownable, ReentrancyGuard, AccessControl, Pausable {
     uint256 public constant MIN_BET = 5 * 10 ** 8; // 5 HBARs
     uint256 public constant PRECISION = 10 ** 8;
     uint256 public constant PROTOCOL_FEE = 200; // 2%
@@ -21,6 +22,7 @@ contract PredictronArena is Ownable, ReentrancyGuard, AccessControl {
     uint256 public currentRoundId;
     uint256 public nextRoundId;
     bytes32 public constant ROUND_MANAGER_ROLE = keccak256("ROUND_MANAGER_ROLE");
+    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     uint256 public protocolFeesCollected;
     AggregatorV3Interface public immutable priceFeed;
 
@@ -76,12 +78,13 @@ contract PredictronArena is Ownable, ReentrancyGuard, AccessControl {
     constructor(address deployer, address _priceFeed) Ownable(deployer) {
         _grantRole(DEFAULT_ADMIN_ROLE, deployer);
         _grantRole(ROUND_MANAGER_ROLE, deployer);
+        _grantRole(PAUSER_ROLE, deployer);
         priceFeed = AggregatorV3Interface(_priceFeed);
         currentRoundId = 0;
         nextRoundId = 1;
     }
 
-    function placeBet(Side side) external payable nonReentrant {
+    function placeBet(Side side) external payable nonReentrant whenNotPaused {
         uint256 roundId = nextRoundId;
         Round storage r = rounds[roundId];
         if (msg.value < MIN_BET) {
@@ -109,7 +112,7 @@ contract PredictronArena is Ownable, ReentrancyGuard, AccessControl {
         emit BetPlaced(roundId, msg.sender, msg.value, side);
     }
 
-    function startRound(Side aiPrediction) external onlyRole(ROUND_MANAGER_ROLE) {
+    function startRound(Side aiPrediction) external onlyRole(ROUND_MANAGER_ROLE) whenNotPaused {
         if (currentRoundId > 0 && block.timestamp < rounds[currentRoundId].startTs + ROUND_INTERVAL) {
             revert PredictronArena__PreviousRoundNotEnded();
         }
@@ -164,7 +167,7 @@ contract PredictronArena is Ownable, ReentrancyGuard, AccessControl {
         emit RoundEnded(currentRoundId, r.endTs, r.endPrice, side);
     }
 
-    function claim(uint256 roundId) external nonReentrant {
+    function claim(uint256 roundId) external nonReentrant whenNotPaused {
         Round storage round = rounds[roundId];
         if (round.endTs == 0) {
             revert PredictronArena__RoundNotEnded();
@@ -193,7 +196,7 @@ contract PredictronArena is Ownable, ReentrancyGuard, AccessControl {
         emit RewardClaimed(roundId, msg.sender, payout);
     }
 
-    function claimProtocolFees() external nonReentrant onlyOwner {
+    function claimProtocolFees() external nonReentrant onlyOwner whenNotPaused {
         uint256 amount = protocolFeesCollected;
         if (amount == 0) {
             revert PredictronArena__NoReward();
@@ -249,6 +252,14 @@ contract PredictronArena is Ownable, ReentrancyGuard, AccessControl {
             }
         }
         return fee;
+    }
+
+    function pause() external onlyRole(PAUSER_ROLE) {
+        _pause();
+    }
+
+    function unpause() external onlyRole(PAUSER_ROLE) {
+        _unpause();
     }
 
     function getRound(uint256 _roundId) external view returns (Round memory) {
