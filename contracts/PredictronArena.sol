@@ -57,7 +57,7 @@ contract PredictronArena is Ownable, ReentrancyGuard, AccessControl {
     event RoundEnded(uint256 indexed roundId, uint256 endTs, int256 endPrice, Side result);
     event RewardClaimed(uint256 indexed roundId, address indexed user, uint256 amount);
     event ProtocolFeesClaimed(address indexed to, uint256 amount);
-    event ExternalPredictionsAdded(uint256 indexed roundId, Side aiPrediction, Side randomPrediction);
+    event ExternalPredictionsAdded(uint256 indexed roundId, Side aiPrediction);
 
     error PredictronArena__MinBetNotMet();
     error PredictronArena__InvalidSide();
@@ -109,7 +109,7 @@ contract PredictronArena is Ownable, ReentrancyGuard, AccessControl {
         emit BetPlaced(roundId, msg.sender, msg.value, side);
     }
 
-    function startRound(Side aiPrediction, Side randomPrediction) external onlyRole(ROUND_MANAGER_ROLE) {
+    function startRound(Side aiPrediction) external onlyRole(ROUND_MANAGER_ROLE) {
         if (currentRoundId > 0 && block.timestamp < rounds[currentRoundId].startTs + ROUND_INTERVAL) {
             revert PredictronArena__PreviousRoundNotEnded();
         }
@@ -128,7 +128,7 @@ contract PredictronArena is Ownable, ReentrancyGuard, AccessControl {
         nextRoundId += 1;
 
         emit RoundStarted(currentRoundId, r.startTs, r.startPrice);
-        emit ExternalPredictionsAdded(currentRoundId, aiPrediction, randomPrediction);
+        emit ExternalPredictionsAdded(currentRoundId, aiPrediction);
     }
 
     function endRound() external onlyRole(ROUND_MANAGER_ROLE) {

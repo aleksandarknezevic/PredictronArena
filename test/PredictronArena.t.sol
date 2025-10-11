@@ -55,19 +55,19 @@ contract PredictronArenaTest is Test {
     function testStartRoundPreviousRoundNotEnded() public {
         vm.deal(address(this), 10e18);
         predictronArena.placeBet{value: 5e8}(Side.Up);
-        predictronArena.startRound(Side.Up, Side.Down);
+        predictronArena.startRound(Side.Up);
 
         vm.warp(block.timestamp + predictronArena.ROUND_INTERVAL() - 1);
         predictronArena.placeBet{value: 5e8}(Side.Up);
 
         vm.expectRevert(PredictronArena.PredictronArena__PreviousRoundNotEnded.selector);
-        predictronArena.startRound(Side.Down, Side.Down);
+        predictronArena.startRound(Side.Up);
     }
 
     function testStartRoundNoPlayers() public {
         vm.deal(address(this), 10e18);
         vm.expectRevert(PredictronArena.PredictronArena__RoundWithoutBets.selector);
-        predictronArena.startRound(Side.Up, Side.Down);
+        predictronArena.startRound(Side.Down);
     }
 
     function testStartRoundRoleAccess() public {
@@ -78,12 +78,12 @@ contract PredictronArenaTest is Test {
 
         vm.prank(randomUser);
         vm.expectRevert();
-        predictronArena.startRound(Side.Up, Side.Down);
+        predictronArena.startRound(Side.Down);
 
         predictronArena.grantRole(predictronArena.ROUND_MANAGER_ROLE(), randomUser);
 
         vm.prank(randomUser);
-        predictronArena.startRound(Side.Up, Side.Up);
+        predictronArena.startRound(Side.Down);
 
         assertEq(predictronArena.currentRoundId(), 1);
     }
@@ -93,7 +93,7 @@ contract PredictronArenaTest is Test {
         vm.deal(randomUser, 10e18);
 
         predictronArena.placeBet{value: 5e8}(Side.Up);
-        predictronArena.startRound(Side.Up, Side.Down);
+        predictronArena.startRound(Side.Down);
         vm.warp(block.timestamp + predictronArena.ROUND_INTERVAL() + 1);
 
         vm.prank(randomUser);
@@ -111,7 +111,7 @@ contract PredictronArenaTest is Test {
     function testEndRoundEarly() public {
         vm.deal(address(this), 10e18);
         predictronArena.placeBet{value: 5e8}(Side.Up);
-        predictronArena.startRound(Side.Down, Side.Up);
+        predictronArena.startRound(Side.Down);
 
         vm.warp(block.timestamp + predictronArena.ROUND_INTERVAL() - 1);
 
@@ -122,7 +122,7 @@ contract PredictronArenaTest is Test {
     function testEndRoundAlreadyEnded() public {
         vm.deal(address(this), 10e18);
         predictronArena.placeBet{value: 5e8}(Side.Up);
-        predictronArena.startRound(Side.Down, Side.Down);
+        predictronArena.startRound(Side.Down);
 
         vm.warp(block.timestamp + predictronArena.ROUND_INTERVAL() + 1);
         predictronArena.endRound();
@@ -146,7 +146,7 @@ contract PredictronArenaTest is Test {
                 predictronArena.placeBet{value: 5e8}(Side.Up);
             }
             mockFeed.updateAnswer(int256(3e7 + round));
-            predictronArena.startRound(Side.Up, Side.Down);
+            predictronArena.startRound(Side.Up);
 
             vm.warp(block.timestamp + predictronArena.ROUND_INTERVAL() + 1);
 
@@ -180,7 +180,7 @@ contract PredictronArenaTest is Test {
         uint256[6] memory amounts =
             [uint256(10e8), uint256(20e8), uint256(30e8), uint256(15e8), uint256(25e8), uint256(35e8)];
         placeBets(sides, amounts);
-        predictronArena.startRound(Side.Up, Side.Down);
+        predictronArena.startRound(Side.Up);
         vm.prank(players[0]);
         vm.expectRevert(PredictronArena.PredictronArena__RoundNotEnded.selector);
         predictronArena.claim(1);
@@ -205,7 +205,7 @@ contract PredictronArenaTest is Test {
         uint256[6] memory amounts =
             [uint256(10e8), uint256(20e8), uint256(30e8), uint256(15e8), uint256(25e8), uint256(35e8)];
         placeBets(sides, amounts);
-        predictronArena.startRound(Side.Down, Side.Down);
+        predictronArena.startRound(Side.Down);
         vm.warp(block.timestamp + predictronArena.ROUND_INTERVAL() + 1);
         mockFeed.updateAnswer(2e7); // Price goes down
         predictronArena.endRound();
@@ -229,7 +229,7 @@ contract PredictronArenaTest is Test {
         uint256[6] memory amounts =
             [uint256(10e8), uint256(20e8), uint256(30e8), uint256(15e8), uint256(25e8), uint256(35e8)];
         placeBets(sides, amounts);
-        predictronArena.startRound(Side.Up, Side.Up);
+        predictronArena.startRound(Side.Up);
         vm.warp(block.timestamp + predictronArena.ROUND_INTERVAL() + 1);
         predictronArena.endRound();
         uint256 totalUp = amounts[0] + amounts[1] + amounts[2];
@@ -252,7 +252,7 @@ contract PredictronArenaTest is Test {
         uint256[6] memory amounts =
             [uint256(10e8), uint256(20e8), uint256(30e8), uint256(15e8), uint256(25e8), uint256(35e8)];
         placeBets(sides, amounts);
-        predictronArena.startRound(Side.Up, Side.Down);
+        predictronArena.startRound(Side.Up);
         vm.warp(block.timestamp + predictronArena.ROUND_INTERVAL() + 1);
         mockFeed.updateAnswer(3e7 - 1);
         predictronArena.endRound();

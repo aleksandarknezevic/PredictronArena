@@ -6,7 +6,7 @@ import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interf
 contract MockV3Aggregator is AggregatorV3Interface {
     uint256 public constant VERSION = 4;
 
-    uint8 public decimals;
+    uint8 public immutable decimals;
     int256 public latestAnswer;
     uint256 public latestTimestamp;
     uint256 public latestRound;
