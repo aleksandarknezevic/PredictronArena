@@ -17,12 +17,12 @@ contract PredictronArena is Ownable, ReentrancyGuard, AccessControl {
     uint256 public constant PRECISION = 10 ** 8;
     uint256 public constant PROTOCOL_FEE = 200; // 2%
     uint256 public constant PROTOCOL_FEE_PRECICION = 1e4;
-    uint256 public constant ROUND_INTERVAL = 4500; // 15 minutes
+    uint256 public constant ROUND_INTERVAL = 900; // 15 minutes
     uint256 public currentRoundId;
     uint256 public nextRoundId;
     bytes32 public constant ROUND_MANAGER_ROLE = keccak256("ROUND_MANAGER_ROLE");
     uint256 public protocolFeesCollected;
-    AggregatorV3Interface public immutable PRICE_FEED;
+    AggregatorV3Interface public immutable priceFeed;
 
     struct Bet {
         uint256 amount;
@@ -57,6 +57,7 @@ contract PredictronArena is Ownable, ReentrancyGuard, AccessControl {
     event RoundEnded(uint256 indexed roundId, uint256 endTs, int256 endPrice, Side result);
     event RewardClaimed(uint256 indexed roundId, address indexed user, uint256 amount);
     event ProtocolFeesClaimed(address indexed to, uint256 amount);
+    event ExternalPredictionsAdded(uint256 indexed roundId, Side aiPrediction, Side randomPrediction);
 
     error PredictronArena__MinBetNotMet();
     error PredictronArena__InvalidSide();
@@ -75,7 +76,7 @@ contract PredictronArena is Ownable, ReentrancyGuard, AccessControl {
     constructor(address deployer, address _priceFeed) Ownable(deployer) {
         _grantRole(DEFAULT_ADMIN_ROLE, deployer);
         _grantRole(ROUND_MANAGER_ROLE, deployer);
-        PRICE_FEED = AggregatorV3Interface(_priceFeed);
+        priceFeed = AggregatorV3Interface(_priceFeed);
         currentRoundId = 0;
         nextRoundId = 1;
     }
@@ -108,7 +109,7 @@ contract PredictronArena is Ownable, ReentrancyGuard, AccessControl {
         emit BetPlaced(roundId, msg.sender, msg.value, side);
     }
 
-    function startRound() external onlyRole(ROUND_MANAGER_ROLE) {
+    function startRound(Side aiPrediction, Side randomPrediction) external onlyRole(ROUND_MANAGER_ROLE) {
         if (currentRoundId > 0 && block.timestamp < rounds[currentRoundId].startTs + ROUND_INTERVAL) {
             revert PredictronArena__PreviousRoundNotEnded();
         }
@@ -127,6 +128,7 @@ contract PredictronArena is Ownable, ReentrancyGuard, AccessControl {
         nextRoundId += 1;
 
         emit RoundStarted(currentRoundId, r.startTs, r.startPrice);
+        emit ExternalPredictionsAdded(currentRoundId, aiPrediction, randomPrediction);
     }
 
     function endRound() external onlyRole(ROUND_MANAGER_ROLE) {
@@ -191,18 +193,18 @@ contract PredictronArena is Ownable, ReentrancyGuard, AccessControl {
         emit RewardClaimed(roundId, msg.sender, payout);
     }
 
-    function claimProtocolFees(address to) external nonReentrant onlyOwner {
+    function claimProtocolFees() external nonReentrant onlyOwner {
         uint256 amount = protocolFeesCollected;
         if (amount == 0) {
             revert PredictronArena__NoReward();
         }
         protocolFeesCollected = 0;
 
-        (bool sent,) = to.call{value: amount}("");
+        (bool sent,) = msg.sender.call{value: amount}("");
         if (!sent) {
             revert PredictronArena__TransferFailed();
         }
-        emit ProtocolFeesClaimed(to, amount);
+        emit ProtocolFeesClaimed(msg.sender, amount);
     }
 
     function calculateReward(uint256 roundId, address user) public view returns (uint256) {
@@ -258,7 +260,7 @@ contract PredictronArena is Ownable, ReentrancyGuard, AccessControl {
     }
 
     function getLatestPrice() public view returns (int256) {
-        (, int256 price,,,) = PRICE_FEED.latestRoundData();
+        (, int256 price,,,) = priceFeed.latestRoundData();
         return price;
     }
 }

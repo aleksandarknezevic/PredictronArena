@@ -6,7 +6,7 @@ all: clean install update build test snapshot format
 
 clean  :; forge clean
 
-install :; forge install openzeppelin/openzeppelin-contracts@v5.4.0 && forge install smartcontractkit/chainlink-brownie-contracts@1.3.0
+install :; forge install openzeppelin/openzeppelin-contracts@v5.4.0 && forge install smartcontractkit/chainlink-brownie-contracts@1.3.0 && forge install foundry-rs/forge-std
 
 update:; forge update
 
