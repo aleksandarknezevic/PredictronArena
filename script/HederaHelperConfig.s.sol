@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {MockV3Aggregator} from "../test/mock/MockV3Aggregator.sol";
+import {MockV3Aggregator} from "../contracts/mocks/MockV3Aggregator.sol";
 import {Script, console2} from "forge-std/Script.sol";
 
 abstract contract CodeConstants {

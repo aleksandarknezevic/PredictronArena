@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import {PredictronArena, Side} from "../contracts/PredictronArena.sol";
 import {HederaHelperConfig} from "../script/HederaHelperConfig.s.sol";
-import {MockV3Aggregator} from "../test/mock/MockV3Aggregator.sol";
+import {MockV3Aggregator} from "../contracts/mocks/MockV3Aggregator.sol";
 import {Test} from "forge-std/Test.sol";
 
 contract PredictronArenaTest is Test {
