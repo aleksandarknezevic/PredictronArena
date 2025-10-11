@@ -11,8 +11,8 @@ abstract contract CodeConstants {
     uint256 public constant LOCAL_CHAIN_ID = 31337;
 }
 
-contract HelperConfig is CodeConstants, Script {
-    error HelperConfig__InvalidChainId();
+contract HederaHelperConfig is CodeConstants, Script {
+    error HederaHelperConfig__InvalidChainId();
 
     struct NetworkConfig {
         address priceFeed;
@@ -31,7 +31,7 @@ contract HelperConfig is CodeConstants, Script {
         } else if (chainId == LOCAL_CHAIN_ID) {
             return getOrCreateLocalConfig();
         } else {
-            revert HelperConfig__InvalidChainId();
+            revert HederaHelperConfig__InvalidChainId();
         }
     }
 

@@ -2,20 +2,20 @@
 pragma solidity ^0.8.24;
 
 import {PredictronArena, Side} from "../contracts/PredictronArena.sol";
-import {HelperConfig} from "../script/HelperConfig.s.sol";
+import {HederaHelperConfig} from "../script/HederaHelperConfig.s.sol";
 import {MockV3Aggregator} from "../test/mock/MockV3Aggregator.sol";
 import {Test} from "forge-std/Test.sol";
 
 contract PredictronArenaTest is Test {
     PredictronArena public predictronArena;
-    HelperConfig public helperConfig;
+    HederaHelperConfig public hederaHelperConfig;
     MockV3Aggregator public mockFeed;
     address[6] public players;
 
     function setUp() public {
-        helperConfig = new HelperConfig();
+        hederaHelperConfig = new HederaHelperConfig();
         uint256 chainId = block.chainid;
-        HelperConfig.NetworkConfig memory networkConfig = helperConfig.getConfigByChainId(chainId);
+        HederaHelperConfig.NetworkConfig memory networkConfig = hederaHelperConfig.getConfigByChainId(chainId);
         predictronArena = new PredictronArena(address(this), networkConfig.priceFeed);
         mockFeed = MockV3Aggregator(address(predictronArena.priceFeed()));
         for (uint256 i = 0; i < 6; i++) {
