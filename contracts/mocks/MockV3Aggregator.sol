@@ -6,7 +6,7 @@ import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interf
 contract MockV3Aggregator is AggregatorV3Interface {
     uint256 public constant VERSION = 4;
 
-    uint8 public immutable decimals;
+    uint8 public immutable DECIMALS;
     int256 public latestAnswer;
     uint256 public latestTimestamp;
     uint256 public latestRound;
@@ -16,7 +16,7 @@ contract MockV3Aggregator is AggregatorV3Interface {
     mapping(uint256 => uint256) private getStartedAt;
 
     constructor(uint8 _decimals, int256 _initialAnswer) {
-        decimals = _decimals;
+        DECIMALS = _decimals;
         updateAnswer(_initialAnswer);
     }
 
@@ -66,5 +66,9 @@ contract MockV3Aggregator is AggregatorV3Interface {
 
     function version() external pure override returns (uint256) {
         return 1;
+    }
+
+    function decimals() external view returns (uint8) {
+        return DECIMALS;
     }
 }

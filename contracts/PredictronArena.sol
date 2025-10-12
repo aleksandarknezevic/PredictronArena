@@ -24,7 +24,7 @@ contract PredictronArena is Ownable, ReentrancyGuard, AccessControl, Pausable {
     bytes32 public constant ROUND_MANAGER_ROLE = keccak256("ROUND_MANAGER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     uint256 public protocolFeesCollected;
-    AggregatorV3Interface public immutable priceFeed;
+    AggregatorV3Interface public immutable PRICE_FEED;
 
     struct Bet {
         uint256 amount;
@@ -79,7 +79,7 @@ contract PredictronArena is Ownable, ReentrancyGuard, AccessControl, Pausable {
         _grantRole(DEFAULT_ADMIN_ROLE, deployer);
         _grantRole(ROUND_MANAGER_ROLE, deployer);
         _grantRole(PAUSER_ROLE, deployer);
-        priceFeed = AggregatorV3Interface(_priceFeed);
+        PRICE_FEED = AggregatorV3Interface(_priceFeed);
         currentRoundId = 0;
         nextRoundId = 1;
     }
@@ -271,7 +271,7 @@ contract PredictronArena is Ownable, ReentrancyGuard, AccessControl, Pausable {
     }
 
     function getLatestPrice() public view returns (int256) {
-        (, int256 price,,,) = priceFeed.latestRoundData();
+        (, int256 price,,,) = PRICE_FEED.latestRoundData();
         return price;
     }
 }

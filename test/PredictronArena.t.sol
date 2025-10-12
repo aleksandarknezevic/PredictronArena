@@ -18,7 +18,7 @@ contract PredictronArenaTest is Test {
         uint256 chainId = block.chainid;
         HederaHelperConfig.NetworkConfig memory networkConfig = hederaHelperConfig.getConfigByChainId(chainId);
         predictronArena = new PredictronArena(address(this), networkConfig.priceFeed);
-        mockFeed = MockV3Aggregator(address(predictronArena.priceFeed()));
+        mockFeed = MockV3Aggregator(address(predictronArena.PRICE_FEED()));
         for (uint256 i = 0; i < 6; i++) {
             players[i] = vm.addr(i + 1);
             vm.deal(players[i], 1000e8); // Fund each player with 10 HBAR equivalent
