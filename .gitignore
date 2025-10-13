@@ -16,3 +16,9 @@ docs/
 
 coverage
 **/lcov.info
+
+**/node_modules/
+
+broadcast/
+script.sh
+*.log

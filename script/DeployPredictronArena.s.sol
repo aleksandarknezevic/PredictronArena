@@ -9,18 +9,15 @@ import {PredictronCCIPReceiver} from "../contracts/PredictronCCIPReceiver.sol";
 contract DeployArenaAndReceiver is Script {
     /// Env vars (set before running):
     /// - OPTIONAL ARENA_ADDR              : address — if set, we won't deploy Arena; we'll attach to it
-    /// - CCIP_ROUTER                      : address — CCIP router on THIS chain
+    /// - HEDERA_CCIP_ROUTER                      : address — CCIP router on THIS chain
     /// - RECEIVER_TRUSTED_SENDER          : address — sender contract on the source chain
     /// - RECEIVER_SOURCE_SELECTOR         : uint64  — chain selector of the source chain
-    ///
-    /// HederaHelperConfig will supply the priceFeed based on block.chainid.
     function run() external returns (PredictronArena arena, PredictronCCIPReceiver receiver, HederaHelperConfig cfg) {
         cfg = new HederaHelperConfig();
         address priceFeed = cfg.getConfigByChainId(block.chainid).priceFeed;
 
-        // Read env (some required)
         address maybeArena = vm.envOr("ARENA_ADDR", address(0));
-        address ccipRouter = vm.envAddress("CCIP_ROUTER");
+        address ccipRouter = vm.envAddress("HEDERA_CCIP_ROUTER");
         address trustedSender = vm.envAddress("RECEIVER_TRUSTED_SENDER");
         uint64 sourceSelector = uint64(vm.envUint("RECEIVER_SOURCE_SELECTOR"));
 

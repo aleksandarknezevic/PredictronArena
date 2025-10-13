@@ -18,7 +18,7 @@ contract PredictronArena is Ownable, ReentrancyGuard, AccessControl, Pausable {
     uint256 public constant PRECISION = 10 ** 8;
     uint256 public constant PROTOCOL_FEE = 200; // 2%
     uint256 public constant PROTOCOL_FEE_PRECISION = 1e4;
-    uint256 public constant ROUND_INTERVAL = 3600; // 1 hour
+    uint256 public constant ROUND_INTERVAL = 3300; // 1 hour - 5 minutes due to possible CCIP delays
     uint256 public currentRoundId;
     uint256 public nextRoundId;
     bytes32 public constant ROUND_MANAGER_ROLE = keccak256("ROUND_MANAGER_ROLE");
