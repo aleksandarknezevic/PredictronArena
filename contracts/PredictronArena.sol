@@ -17,8 +17,8 @@ contract PredictronArena is Ownable, ReentrancyGuard, AccessControl, Pausable {
     uint256 public constant MIN_BET = 5 * 10 ** 8; // 5 HBARs
     uint256 public constant PRECISION = 10 ** 8;
     uint256 public constant PROTOCOL_FEE = 200; // 2%
-    uint256 public constant PROTOCOL_FEE_PRECICION = 1e4;
-    uint256 public constant ROUND_INTERVAL = 900; // 15 minutes
+    uint256 public constant PROTOCOL_FEE_PRECISION = 1e4;
+    uint256 public constant ROUND_INTERVAL = 3600; // 1 hour
     uint256 public currentRoundId;
     uint256 public nextRoundId;
     bytes32 public constant ROUND_MANAGER_ROLE = keccak256("ROUND_MANAGER_ROLE");
@@ -113,8 +113,11 @@ contract PredictronArena is Ownable, ReentrancyGuard, AccessControl, Pausable {
     }
 
     function startRound(Side aiPrediction) external onlyRole(ROUND_MANAGER_ROLE) whenNotPaused {
-        if (currentRoundId > 0 && block.timestamp < rounds[currentRoundId].startTs + ROUND_INTERVAL) {
-            revert PredictronArena__PreviousRoundNotEnded();
+        if (currentRoundId > 0) {
+            Round storage prevRound = rounds[currentRoundId];
+            if (prevRound.endTs == 0) {
+                revert PredictronArena__PreviousRoundNotEnded();
+            }
         }
 
         Round storage r = rounds[nextRoundId];
@@ -229,7 +232,7 @@ contract PredictronArena is Ownable, ReentrancyGuard, AccessControl, Pausable {
         } else if (winningSide == Side.None) {
             return 0;
         }
-        uint256 fee = (totalLosing * PROTOCOL_FEE) / PROTOCOL_FEE_PRECICION;
+        uint256 fee = (totalLosing * PROTOCOL_FEE) / PROTOCOL_FEE_PRECISION;
         uint256 rewardPool = totalLosing - fee;
         uint256 totalPayout = totalWinning + rewardPool;
         rewards = (userShare * totalPayout) / PRECISION;
@@ -248,7 +251,7 @@ contract PredictronArena is Ownable, ReentrancyGuard, AccessControl, Pausable {
             if (totalWinning == 0) {
                 fee = totalLosing;
             } else {
-                fee = (totalLosing * PROTOCOL_FEE) / PROTOCOL_FEE_PRECICION;
+                fee = (totalLosing * PROTOCOL_FEE) / PROTOCOL_FEE_PRECISION;
             }
         }
         return fee;

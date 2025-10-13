@@ -12,19 +12,34 @@ interface IPredictronArena {
     }
     function startRound(Side aiPrediction) external;
     function endRound() external;
+    function getCurrentRound()
+        external
+        view
+        returns (
+            uint256 id,
+            uint256 startTs,
+            uint256 endTs,
+            int256 startPrice,
+            int256 endPrice,
+            uint256 totalUp,
+            uint256 totalDown,
+            Side winningSide
+        );
 }
 
 contract PredictronCCIPReceiver is CCIPReceiver {
     address public immutable TRUSTED_SENDER;
     uint64 public immutable SOURCE_CHAIN_SELECTOR;
     IPredictronArena public immutable ARENA;
-    bytes4 constant ROUND_CANNOT_BE_ENDED_SELECTOR = bytes4(keccak256("PredictronArena__RoundCannotBeEnded()"));
 
     event PredictionReceived(uint256 roundId, uint8 direction, uint64 ts);
+    event EndRoundOk(uint256 roundId);
+    event EndRoundFailed(bytes reason);
+    event StartRoundOk(uint256 newRoundId, IPredictronArena.Side side);
+    event StartRoundFailed(IPredictronArena.Side side, bytes reason);
 
     error PredictronCCIPReceiver__NotTrustedSender();
     error PredictronCCIPReceiver__WrongChain();
-    error PredictronCCIPReceiver__RoundCannotBeEnded();
 
     constructor(address _ccipRouter, address _arena, address _trustedSender, uint64 _sourceChainSelector)
         CCIPReceiver(_ccipRouter)
@@ -46,23 +61,23 @@ contract PredictronCCIPReceiver is CCIPReceiver {
         emit PredictionReceived(roundId, dir, ts);
 
         IPredictronArena.Side side = (dir == 1) ? IPredictronArena.Side.Up : IPredictronArena.Side.Down;
-        bool ended;
 
-        try ARENA.endRound() {
-            ended = true;
-        } catch (bytes memory reason) {
-            ended = false;
+        (uint256 curId, uint256 startTs, uint256 endTs,,,,,) = ARENA.getCurrentRound();
 
-            if (reason.length >= 4) {
-                bytes4 sel;
-                assembly {
-                    sel := mload(add(reason, 0x20))
-                }
-                if (sel == ROUND_CANNOT_BE_ENDED_SELECTOR) {
-                    revert PredictronCCIPReceiver__RoundCannotBeEnded();
-                }
+        if (startTs > 0 && endTs == 0) {
+            try ARENA.endRound() {
+                emit EndRoundOk(curId);
+            } catch (bytes memory reason) {
+                emit EndRoundFailed(reason);
+                return;
             }
         }
-        ARENA.startRound(side);
+
+        try ARENA.startRound(side) {
+            (uint256 newId,,,,,,,) = ARENA.getCurrentRound();
+            emit StartRoundOk(newId, side);
+        } catch (bytes memory reason) {
+            emit StartRoundFailed(side, reason);
+        }
     }
 }
