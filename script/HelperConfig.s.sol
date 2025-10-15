@@ -7,12 +7,12 @@ import {Script, console2} from "forge-std/Script.sol";
 abstract contract CodeConstants {
     uint8 public constant DECIMALS = 8;
     int256 public constant INITIAL_PRICE = 3e7;
-    uint256 public constant HEDERA_TESTNET_CHAIN_ID = 296;
+    uint256 public constant SEPOLIA_TESTNET_CHAIN_ID = 11155111;
     uint256 public constant LOCAL_CHAIN_ID = 31337;
 }
 
-contract HederaHelperConfig is CodeConstants, Script {
-    error HederaHelperConfig__InvalidChainId();
+contract HelperConfig is CodeConstants, Script {
+    error HelperConfig__InvalidChainId();
 
     struct NetworkConfig {
         address priceFeed;
@@ -22,7 +22,7 @@ contract HederaHelperConfig is CodeConstants, Script {
     mapping(uint256 => NetworkConfig) public networkConfigs;
 
     constructor() {
-        networkConfigs[HEDERA_TESTNET_CHAIN_ID] = getHederaTestnetConfig();
+        networkConfigs[SEPOLIA_TESTNET_CHAIN_ID] = getSepoliaTestnetConfig();
     }
 
     function getConfigByChainId(uint256 chainId) public returns (NetworkConfig memory) {
@@ -31,12 +31,12 @@ contract HederaHelperConfig is CodeConstants, Script {
         } else if (chainId == LOCAL_CHAIN_ID) {
             return getOrCreateLocalConfig();
         } else {
-            revert HederaHelperConfig__InvalidChainId();
+            revert HelperConfig__InvalidChainId();
         }
     }
 
-    function getHederaTestnetConfig() public pure returns (NetworkConfig memory) {
-        return NetworkConfig({priceFeed: address(0x59bC155EB6c6C415fE43255aF66EcF0523c92B4a)});
+    function getSepoliaTestnetConfig() public pure returns (NetworkConfig memory) {
+        return NetworkConfig({priceFeed: address(0x694AA1769357215DE4FAC081bf1f309aDC325306)});
     }
 
     function getOrCreateLocalConfig() public returns (NetworkConfig memory) {
