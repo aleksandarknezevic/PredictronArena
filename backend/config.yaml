@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=./node_modules/envio/evm.schema.json
+name: envio-indexer
+networks:
+- id: 11155111
+  start_block: 9426579
+  contracts:
+  - name: PredictronArena
+    address:
+    - 0xe62Fcb22480950aA6c9f49Dc1057752e1aDd52c2
+    handler: src/EventHandlers.ts
+    events:
+    - event: BetPlaced(uint256 indexed roundId, address indexed user, uint256 amount, uint8 side)
+    - event: RewardClaimed(uint256 indexed roundId, address indexed user, uint256 amount)
+    - event: RoundEnded(uint256 indexed roundId, uint256 endTs, int256 endPrice, uint8 result)
+    - event: RoundStarted(uint256 indexed roundId, uint256 startTs, int256 startPrice)
+    - event: ExternalPredictionAdded(uint256 indexed roundId, uint8 aiPrediction)
+unordered_multichain_mode: true
+preload_handlers: true

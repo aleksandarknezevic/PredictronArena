@@ -10,7 +10,7 @@ const source = fs.readFileSync("./source.js", "utf8");
 
 const sim = await simulateScript({
   source,
-  args: ["HBAR", "USD"],
+  args: ["ETH", "USD"],
   secrets: {
     CMC_API_KEY: String(process.env.CMC_API_KEY),
     CF_API_TOKEN: String(process.env.CF_API_TOKEN),

@@ -1,0 +1,73 @@
+type Round {
+  id: ID! # "<chainId>_<roundId>"
+  chainId: Int!
+  roundId: BigInt!
+  startTs: BigInt
+  endTs: BigInt
+  startPrice: BigInt
+  endPrice: BigInt
+  aiPrediction: Int # 1 = Up, 2 = Down, 0/undefined = None
+  result: Int # 1 = Up, 2 = Down, 0 = None
+  totalUp: BigInt!
+  totalDown: BigInt!
+  protocolFeeBps: Int!
+  protocolFeePrecision: BigInt!
+}
+
+type UserRound {
+  id: ID!
+  chainId: Int!
+  roundId: BigInt!
+  user: Bytes!
+  upAmount: BigInt!
+  downAmount: BigInt!
+  totalBet: BigInt!
+  side: Int
+  grossReward: BigInt!
+  netPnl: BigInt!
+  won: Boolean!
+  claimed: Boolean!
+}
+
+type UserStats {
+  id: ID!
+  chainId: Int!
+  user: Bytes!
+  roundsPlayed: Int!
+  wins: Int!
+  losses: Int!
+  pushes: Int!
+  totalBet: BigInt!
+  totalGrossRewards: BigInt!
+  totalNetPnl: BigInt!
+  winRate: Float!
+}
+
+type AiStats {
+  id: ID! # "<chainId>"
+  chainId: Int!
+  roundsWithPrediction: Int!
+  correct: Int!
+  incorrect: Int!
+  pushes: Int! # result == None
+  accuracy: Float!
+}
+
+# Optional: precomputed leaderboard rows (by PnL)
+type LeaderboardRow {
+  id: ID! # "<chainId>_<user>"
+  chainId: Int!
+  user: Bytes!
+  totalNetPnl: BigInt!
+  winRate: Float!
+  roundsPlayed: Int!
+}
+
+type RoundParticipant {
+  id: ID! # "<chainId>_<roundId>_<user>"
+  chainId: Int!
+  roundId: BigInt!
+  user: Bytes!
+  processedResults: Boolean!
+}
+

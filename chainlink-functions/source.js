@@ -5,10 +5,10 @@
 //  - secrets.CF_API_TOKEN
 //  - secrets.CF_ACCOUNT_ID
 // Args:
-//  - args[0] symbol (default HBAR)
+//  - args[0] symbol (default ETH)
 //  - args[1] convert (default USD)
 
-const SYMBOL  = (args[0] || "HBAR").toUpperCase();
+const SYMBOL  = (args[0] || "ETH").toUpperCase();
 const CONVERT = (args[1] || "USD").toUpperCase();
 
 

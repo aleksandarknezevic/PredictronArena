@@ -106,14 +106,11 @@ contract PredictronArena is
         FunctionsClient(_functionsRouter)
         ConfirmedOwner(msg.sender)
     {
-        bool success_admin_owner = _grantRole(DEFAULT_ADMIN_ROLE, deployer);
-        bool success_round_manager_owner = _grantRole(ROUND_MANAGER_ROLE, deployer);
-        bool success_pauser_owner = _grantRole(PAUSER_ROLE, deployer);
-        bool success_round_manager_contract = _grantRole(ROUND_MANAGER_ROLE, address(this));
-        if (
-            !success_admin_owner || !success_round_manager_owner || !success_pauser_owner
-                || !success_round_manager_contract
-        ) {
+        bool successAdminOwner = _grantRole(DEFAULT_ADMIN_ROLE, deployer);
+        bool successRoundManagerOwner = _grantRole(ROUND_MANAGER_ROLE, deployer);
+        bool successPauserOwner = _grantRole(PAUSER_ROLE, deployer);
+        bool successRoundManagerContract = _grantRole(ROUND_MANAGER_ROLE, address(this));
+        if (!successAdminOwner || !successRoundManagerOwner || !successPauserOwner || !successRoundManagerContract) {
             revert PredictronArena__GrantRoleFailed();
         }
         PRICE_FEED = AggregatorV3Interface(_priceFeed);
@@ -136,7 +133,7 @@ contract PredictronArena is
         emit FunctionsSet(src, encRef, subId, cbGas);
     }
 
-    function setAutomation(address forwarder) external onlyOwner {
+    function setAutomations(address forwarder) external onlyOwner {
         if (forwarder == address(0)) {
             revert PredictronArena__WrongAddress();
         }
