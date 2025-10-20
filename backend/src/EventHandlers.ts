@@ -69,12 +69,7 @@ PredictronArena.BetPlaced.handler(async ({ event, context }) => {
     );
   }
   
-  const recentRounds = Math.max(1, Number(currentRoundId) - 3);
-  for (let roundId = BigInt(recentRounds); roundId < currentRoundId; roundId++) {
-    await processUserRoundResult(context, event.chainId, roundId, event.params.user);
-    
-    console.log(`BetPlaced: Processed Round ${roundId} for user ${event.params.user}`);
-  }
+  console.log(`BetPlaced: Processed all ${currentRoundId - 1n} previous rounds for user ${event.params.user}`);
 
   const roundKey = idRound(event.chainId, event.params.roundId);
   const roundPrev = await context.Round.get(roundKey);
@@ -160,8 +155,6 @@ PredictronArena.BetPlaced.handler(async ({ event, context }) => {
 
 
 PredictronArena.RewardClaimed.handler(async ({ event, context }) => {
-  // Process ALL previous rounds for this user to ensure nothing is missed
-  // This is especially important for claim events since users might not place new bets
   const claimedRoundId = event.params.roundId;
   for (let prevRoundId = 1n; prevRoundId <= claimedRoundId; prevRoundId++) {
     await processUserRoundResult(
@@ -365,12 +358,9 @@ PredictronArena.RoundEnded.handler(async ({ event, context }) => {
   };
   context.Round.set(round);
 
-  // Process results for all participants immediately when round ends
-  // Since we can't directly query UserRound records in handlers, we'll rely on
-  // the processUserRoundResult being called when users place bets or claim rewards
-  // This ensures results are processed when users interact with the system
-  
-  console.log(`Round ${event.params.roundId} ended with result ${event.params.result}. Results will be processed when users interact with the system.`);
+  const resultValue = Number(event.params.result);
+  console.log(`Round ${event.params.roundId} ended with result ${resultValue} (${resultValue === 1 ? 'UP' : resultValue === 2 ? 'DOWN' : 'TIE'}).`);
+  console.log(`Results for participants will be calculated when they place new bets or claim rewards.`);
 
 
   if (round.aiPrediction !== undefined) {
