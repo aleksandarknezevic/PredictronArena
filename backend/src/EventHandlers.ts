@@ -75,6 +75,14 @@ PredictronArena.BetPlaced.handler(async ({ event, context }) => {
   const roundPrev = await context.Round.get(roundKey);
   const isUp = Number(event.params.side) === 1;
 
+  // Add participant to the list if not already there
+  const userLower = event.params.user.toLowerCase();
+  const existingParticipants = roundPrev?.participants ?? "";
+  const participantsList = existingParticipants ? existingParticipants.split(",").filter((p: string) => p) : [];
+  if (!participantsList.includes(userLower)) {
+    participantsList.push(userLower);
+  }
+
   const nextRound = {
     id: roundKey,
     chainId: event.chainId,
@@ -89,6 +97,7 @@ PredictronArena.BetPlaced.handler(async ({ event, context }) => {
     totalDown: (roundPrev?.totalDown ?? 0n) + (!isUp ? (event.params.amount as bigint) : 0n),
     protocolFeeBps: roundPrev?.protocolFeeBps ?? Number(PROTOCOL_FEE_BPS),
     protocolFeePrecision: roundPrev?.protocolFeePrecision ?? PROTOCOL_FEE_PRECISION,
+    participants: participantsList.length > 0 ? participantsList.join(",") : undefined,
   };
   context.Round.set(nextRound);
 
@@ -207,8 +216,8 @@ async function processUserRoundResult(
         round.totalDown
       );
       const totalBet = urPrev.upAmount + urPrev.downAmount;
-      const won = gross > 0n && round.result !== 0;
       const net = gross - totalBet;
+      const won = net > 0n;
 
       context.UserRound.set({
         ...urPrev,
@@ -284,6 +293,7 @@ PredictronArena.RoundStarted.handler(async ({ event, context }) => {
     totalDown: prev?.totalDown ?? 0n,
     protocolFeeBps: prev?.protocolFeeBps ?? Number(PROTOCOL_FEE_BPS),
     protocolFeePrecision: prev?.protocolFeePrecision ?? PROTOCOL_FEE_PRECISION,
+    participants: prev?.participants,
   };
   context.Round.set(next);
 
@@ -320,6 +330,7 @@ PredictronArena.ExternalPredictionAdded.handler(async ({ event, context }) => {
     totalDown: prev?.totalDown ?? 0n,
     protocolFeeBps: prev?.protocolFeeBps ?? Number(PROTOCOL_FEE_BPS),
     protocolFeePrecision: prev?.protocolFeePrecision ?? PROTOCOL_FEE_PRECISION,
+    participants: prev?.participants,
   });
 
   const aiKey = idAi(event.chainId);
@@ -355,12 +366,27 @@ PredictronArena.RoundEnded.handler(async ({ event, context }) => {
     totalDown: prev?.totalDown ?? 0n,
     protocolFeeBps: prev?.protocolFeeBps ?? Number(PROTOCOL_FEE_BPS),
     protocolFeePrecision: prev?.protocolFeePrecision ?? PROTOCOL_FEE_PRECISION,
+    participants: prev?.participants,
   };
   context.Round.set(round);
 
   const resultValue = Number(event.params.result);
   console.log(`Round ${event.params.roundId} ended with result ${resultValue} (${resultValue === 1 ? 'UP' : resultValue === 2 ? 'DOWN' : 'TIE'}).`);
-  console.log(`Results for participants will be calculated when they place new bets or claim rewards.`);
+  
+  // Process rewards for all participants immediately
+  const participants = round.participants ? round.participants.split(",").filter((p: string) => p) : [];
+  console.log(`Processing rewards for ${participants.length} participants in Round ${event.params.roundId}...`);
+  
+  for (const participant of participants) {
+    await processUserRoundResult(
+      context,
+      event.chainId,
+      event.params.roundId,
+      participant
+    );
+  }
+  
+  console.log(`Completed processing rewards for Round ${event.params.roundId}.`);
 
 
   if (round.aiPrediction !== undefined) {

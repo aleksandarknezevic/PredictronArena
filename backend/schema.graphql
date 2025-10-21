@@ -12,6 +12,7 @@ type Round {
   totalDown: BigInt!
   protocolFeeBps: Int!
   protocolFeePrecision: BigInt!
+  participants: String
 }
 
 type UserRound {
