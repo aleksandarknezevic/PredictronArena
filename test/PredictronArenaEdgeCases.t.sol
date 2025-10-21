@@ -303,5 +303,3 @@ contract PredictronArenaEdgeCasesTest is Test {
 
     receive() external payable {}
 }
-
-
