@@ -72,7 +72,7 @@ services:
       HASURA_SERVICE_PORT: 8080
       TUI_OFF: ${TUI_OFF:-true}
     healthcheck:
-      test: timeout 1s bash -c ':> /dev/tcp/127.0.0.1/8080' || exit 1
+      test: timeout 1s bash -c ':> /dev/tcp/127.0.0.1/9898' || exit 1
       interval: 5s
       timeout: 2s
       retries: 50
