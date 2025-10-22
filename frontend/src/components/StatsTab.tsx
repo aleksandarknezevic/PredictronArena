@@ -181,16 +181,16 @@ export const StatsTab: React.FC = () => {
   const leaderboard = leaderboardData?.LeaderboardRow || [];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
       {/* Your Stats */}
       {userStats ? (
-        <div className="bg-gradient-to-br from-gray-900/80 to-gray-800/80 rounded-2xl p-8 border border-gray-700/50">
-          <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-            <Trophy className="w-8 h-8 text-indigo-400" />
+        <div className="bg-card glass-card compact-padding rounded-lg border border-gray-700/50">
+          <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+            <Trophy className="w-6 h-6 text-indigo-400" />
             Your Performance
           </h2>
           
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="text-center">
               <TrendingUp className="w-8 h-8 text-green-400 mx-auto mb-3" />
               <div className="text-4xl font-bold text-green-400 mb-2">
@@ -263,15 +263,15 @@ export const StatsTab: React.FC = () => {
 
       {/* AI vs Players Comparison */}
       {aiStats && (
-        <div className="bg-gradient-to-br from-purple-900/30 to-blue-900/30 rounded-2xl p-8 border border-purple-700/50">
-          <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-            <Brain className="w-8 h-8 text-purple-400" />
+        <div className="bg-card glass-card compact-padding rounded-lg border border-purple-700/50">
+          <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+            <Brain className="w-6 h-6 text-purple-400" />
             AI vs Players
           </h2>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* AI Stats */}
-            <div className="bg-gray-900/50 rounded-xl p-6 border border-gray-800/50">
+            <div className="bg-card glass-card compact-padding rounded-lg border border-gray-800/50">
               <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
                 <Bot className="w-6 h-6 text-purple-400" />
                 AI Performance
@@ -306,7 +306,7 @@ export const StatsTab: React.FC = () => {
 
             {/* Your vs AI Comparison */}
             {userStats && (
-              <div className="bg-gray-900/50 rounded-xl p-6 border border-gray-800/50">
+              <div className="bg-card glass-card compact-padding rounded-lg border border-gray-800/50">
                 <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
                   <Users className="w-6 h-6 text-green-400" />
                   Your vs AI
@@ -350,15 +350,15 @@ export const StatsTab: React.FC = () => {
 
       {/* Leaderboard */}
       {leaderboard && leaderboard.length > 0 && (
-        <div className="bg-gradient-to-br from-gray-900/80 to-gray-800/80 rounded-2xl p-8 border border-gray-700/50">
-          <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-            <Trophy className="w-8 h-8 text-yellow-400" />
+        <div className="bg-card glass-card compact-padding rounded-lg border border-gray-700/50">
+          <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+            <Trophy className="w-6 h-6 text-yellow-400" />
             Leaderboard
           </h2>
           
-          <div className="space-y-4">
+          <div className="space-y-2">
             {leaderboard.slice(0, 10).map((player, index) => (
-              <div key={player.user} className="flex items-center justify-between bg-gray-900/50 rounded-xl p-4 border border-gray-800/50">
+              <div key={player.user} className="flex items-center justify-between bg-card glass-card compact-padding rounded-lg border border-gray-800/50 hover:scale-[1.01] transition-all">
                 <div className="flex items-center gap-4">
                   <div className="w-8 h-8 flex items-center justify-center">
                     {getRankIcon(index)}

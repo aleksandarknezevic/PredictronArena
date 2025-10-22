@@ -9,7 +9,9 @@ import {
   Gift,
   AlertCircle,
   CheckCircle,
-  History as HistoryIcon
+  History as HistoryIcon,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Side, SEPOLIA_CHAIN_ID } from '../contracts/PredictronArena';
 import { ethers } from 'ethers';
@@ -36,6 +38,15 @@ export const HistoryTab: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [claimingRounds, setClaimingRounds] = useState<Set<string>>(new Set());
   const locallyClaimedRef = useRef<Set<string>>(new Set()); // Persistent ref for locally claimed rounds
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  
+  // Reset to page 1 when bet history changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [betHistory.length]);
 
   const fetchBetHistory = async () => {
     if (!account || !isConnected || chainId !== SEPOLIA_CHAIN_ID) {
@@ -147,7 +158,9 @@ export const HistoryTab: React.FC = () => {
         // Same round: show UP bet before DOWN bet
         const aIsUp = BigInt(a.userBet.upAmount) > 0n;
         const bIsUp = BigInt(b.userBet.upAmount) > 0n;
-        return aIsUp === bIsUp ? 0 : aIsUp ? -1 : 1;
+        if (aIsUp && !bIsUp) return -1; // a is UP, b is DOWN -> a comes first
+        if (!aIsUp && bIsUp) return 1;  // a is DOWN, b is UP -> b comes first
+        return 0; // both same side (shouldn't happen)
       });
       
       setBetHistory(betHistoryData);
@@ -200,13 +213,6 @@ export const HistoryTab: React.FC = () => {
   useEffect(() => {
     if (contract && account && chainId === SEPOLIA_CHAIN_ID) {
       fetchBetHistory();
-      
-      // Auto-refresh every 15 seconds to pick up new round endings and reward calculations
-      const intervalId = setInterval(() => {
-        fetchBetHistory();
-      }, 15000);
-      
-      return () => clearInterval(intervalId);
     }
   }, [contract, account, chainId]);
 
@@ -279,15 +285,15 @@ export const HistoryTab: React.FC = () => {
   }, 0n);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Total Bets */}
-        <div className="bg-gradient-to-br from-gray-900/80 to-gray-800/80 rounded-xl p-6 border border-gray-700/50">
+        <div className="bg-card glass-card compact-padding rounded-lg border border-gray-700/50 hover:scale-[1.02] transition-all duration-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-400">Total Rounds</p>
-              <p className="text-2xl font-bold text-white">
+              <p className="text-xs text-gray-400 uppercase tracking-wider">Total Rounds</p>
+              <p className="text-2xl font-bold text-white mt-1">
                 {(() => {
                   // Count unique rounds (since we split UP/DOWN bets into separate entries)
                   const uniqueRounds = new Set(betHistory.map(bet => bet.roundId));
@@ -300,11 +306,11 @@ export const HistoryTab: React.FC = () => {
         </div>
 
         {/* Win Rate */}
-        <div className="bg-gradient-to-br from-green-900/30 to-green-800/30 rounded-xl p-6 border border-green-700/50">
+        <div className="bg-card glass-card compact-padding rounded-lg border border-green-700/50 hover:scale-[1.02] transition-all duration-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-green-300">Win Rate</p>
-              <p className="text-2xl font-bold text-green-400">
+              <p className="text-xs text-green-300 uppercase tracking-wider">Win Rate</p>
+              <p className="text-2xl font-bold text-green-400 mt-1">
                 {betHistory.length > 0 
                   ? (() => {
                       // Group by round ID to count unique rounds (not individual bet entries)
@@ -312,9 +318,10 @@ export const HistoryTab: React.FC = () => {
                       
                       betHistory.forEach(bet => {
                         if (bet.round && bet.round.endTs !== null && bet.round.endTs !== undefined && bet.round.endTs !== "0") {
-                          // Only set if not already set (both UP and DOWN entries have same won status)
+                          // Use netPnl to determine if the round was profitable overall (matches backend logic)
                           if (!roundsMap.has(bet.roundId)) {
-                            roundsMap.set(bet.roundId, bet.won === true);
+                            const netPnl = BigInt(bet.netPnl || '0');
+                            roundsMap.set(bet.roundId, netPnl > 0n);
                           }
                         }
                       });
@@ -333,11 +340,11 @@ export const HistoryTab: React.FC = () => {
         </div>
 
         {/* Claimable Rewards */}
-        <div className="bg-gradient-to-br from-yellow-900/30 to-yellow-800/30 rounded-xl p-6 border border-yellow-700/50">
+        <div className="bg-card glass-card compact-padding rounded-lg border border-yellow-700/50 hover:scale-[1.02] transition-all duration-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-yellow-300">Claimable</p>
-              <p className="text-2xl font-bold text-yellow-400">{formatEther(totalClaimable)} ETH</p>
+              <p className="text-xs text-yellow-300 uppercase tracking-wider">Claimable</p>
+              <p className="text-2xl font-bold text-yellow-400 mt-1">{formatEther(totalClaimable)} ETH</p>
             </div>
             <Gift className="w-10 h-10 text-yellow-400" />
           </div>
@@ -345,10 +352,17 @@ export const HistoryTab: React.FC = () => {
       </div>
 
       {/* Bet History List */}
-      <div className="space-y-4">
-        <h3 className="text-xl font-semibold text-white">Recent Bets</h3>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-semibold text-white">Recent Bets</h3>
+          <div className="text-xs text-gray-400 bg-gray-800/50 px-3 py-1 rounded-full">
+            Page {currentPage} of {Math.max(1, Math.ceil(betHistory.length / itemsPerPage))}
+          </div>
+        </div>
         
-        {betHistory.map((bet) => {
+        {betHistory
+          .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+          .map((bet) => {
           const betSide = getBetSide(bet.userBet);
           const roundEnded = bet.round ? (bet.round.endTs !== null && bet.round.endTs !== undefined && bet.round.endTs !== "0") : false;
           
@@ -377,116 +391,271 @@ export const HistoryTab: React.FC = () => {
           const isClaimingThisRound = claimingRounds.has(bet.roundId.toString());
           
           return (
-            <div key={bet.roundId.toString()} className="bg-gray-900/50 rounded-xl p-6 border border-gray-800/50">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="text-lg font-semibold text-white">
-                    Round #{bet.roundId.toString()}
-                  </div>
-                  {betSide === Side.Up ? (
-                    <TrendingUp className="w-5 h-5 text-green-400" />
-                  ) : (
-                    <TrendingDown className="w-5 h-5 text-red-400" />
-                  )}
-                  <span className={`px-2 py-1 rounded text-sm font-medium ${
-                    betResult === 'won' ? 'bg-green-600/20 text-green-400' :
-                    betResult === 'lost' ? 'bg-red-600/20 text-red-400' :
-                    betResult === 'pending' ? 'bg-yellow-600/20 text-yellow-400' :
-                    'bg-gray-600/20 text-gray-400'
-                  }`}>
-                    {betResult === 'won' ? 'Won' : 
-                     betResult === 'lost' ? 'Lost' : 
-                     betResult === 'pending' ? 'Pending' : 'Tie'}
-                  </span>
+            <div 
+              key={`${bet.roundId}-${betSide === Side.Up ? 'up' : 'down'}`} 
+              style={{
+                backgroundColor: 'rgba(31, 41, 55, 0.6)',
+                border: '1px solid rgba(75, 85, 99, 0.5)',
+                borderRadius: '0.5rem',
+                padding: '0.75rem 1rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '1rem',
+                transition: 'all 0.2s',
+                cursor: 'default'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(31, 41, 55, 0.9)';
+                e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.5)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(31, 41, 55, 0.6)';
+                e.currentTarget.style.borderColor = 'rgba(75, 85, 99, 0.5)';
+              }}
+            >
+              {/* Left Section: Round Info & Status */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: '180px' }}>
+                <div style={{ 
+                  fontSize: '0.875rem', 
+                  fontWeight: '700', 
+                  color: '#9ca3af',
+                  minWidth: '60px'
+                }}>
+                  #{bet.roundId.toString()}
                 </div>
                 
+                {betSide === Side.Up ? (
+                  <TrendingUp style={{ width: '1.125rem', height: '1.125rem', color: '#4ade80', flexShrink: 0 }} />
+                ) : (
+                  <TrendingDown style={{ width: '1.125rem', height: '1.125rem', color: '#f87171', flexShrink: 0 }} />
+                )}
+                
+                <div style={{
+                  padding: '0.25rem 0.625rem',
+                  borderRadius: '0.375rem',
+                  fontSize: '0.75rem',
+                  fontWeight: '700',
+                  backgroundColor: betResult === 'won' ? 'rgba(34, 197, 94, 0.2)' :
+                                   betResult === 'lost' ? 'rgba(239, 68, 68, 0.2)' :
+                                   betResult === 'pending' ? 'rgba(234, 179, 8, 0.2)' :
+                                   'rgba(107, 114, 128, 0.2)',
+                  color: betResult === 'won' ? '#4ade80' :
+                         betResult === 'lost' ? '#f87171' :
+                         betResult === 'pending' ? '#fbbf24' :
+                         '#9ca3af'
+                }}>
+                  {betResult === 'won' ? 'WON' : 
+                   betResult === 'lost' ? 'LOST' : 
+                   betResult === 'pending' ? 'PENDING' : 'TIE'}
+                </div>
+              </div>
+
+              {/* Middle Section: Bet Details (flex-grow to take available space) */}
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '1.5rem',
+                flex: 1,
+                fontSize: '0.875rem'
+              }}>
+                {/* Bet Amount */}
+                <div style={{ minWidth: '90px' }}>
+                  <div style={{ color: '#6b7280', fontSize: '0.75rem', marginBottom: '0.125rem' }}>BET</div>
+                  <div style={{ color: '#ffffff', fontWeight: '700', fontFamily: 'monospace' }}>
+                    {formatEther(totalBet)} ETH
+                  </div>
+                </div>
+
+                {/* Direction */}
+                <div style={{ minWidth: '60px' }}>
+                  <div style={{ color: '#6b7280', fontSize: '0.75rem', marginBottom: '0.125rem' }}>SIDE</div>
+                  <div style={{ 
+                    color: betSide === Side.Up ? '#4ade80' : '#f87171',
+                    fontWeight: '900',
+                    fontSize: '0.875rem'
+                  }}>
+                    {betSide === Side.Up ? 'UP' : 'DOWN'}
+                  </div>
+                </div>
+
+                {/* Price Change (only if round ended) */}
+                {bet.round && bet.round.endTs && BigInt(bet.round.endTs) > 0n && (
+                  <div style={{ minWidth: '160px' }}>
+                    <div style={{ color: '#6b7280', fontSize: '0.75rem', marginBottom: '0.125rem' }}>PRICE</div>
+                    <div style={{ 
+                      fontFamily: 'monospace',
+                      fontSize: '0.8125rem',
+                      fontWeight: '600',
+                      color: bet.round.endPrice && bet.round.startPrice && BigInt(bet.round.endPrice) > BigInt(bet.round.startPrice) ? '#4ade80' : 
+                             bet.round.endPrice && bet.round.startPrice && BigInt(bet.round.endPrice) < BigInt(bet.round.startPrice) ? '#f87171' : '#9ca3af'
+                    }}>
+                      {bet.round.startPrice && bet.round.endPrice ? (
+                        <>{formatPrice(BigInt(bet.round.startPrice))} → {formatPrice(BigInt(bet.round.endPrice))}</>
+                      ) : '—'}
+                    </div>
+                  </div>
+                )}
+
+                {/* Pending indicator */}
+                {bet.round && bet.round.endTs && BigInt(bet.round.endTs) === 0n && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: '#fbbf24' }}>
+                    <Clock style={{ width: '1rem', height: '1rem' }} />
+                    <span style={{ fontSize: '0.8125rem', fontWeight: '600' }}>In progress...</span>
+                  </div>
+                )}
+
+                {/* Reward (only if round ended) */}
+                {bet.round && bet.round.endTs && BigInt(bet.round.endTs) > 0n && (
+                  <div style={{ minWidth: '100px' }}>
+                    <div style={{ color: '#6b7280', fontSize: '0.75rem', marginBottom: '0.125rem' }}>REWARD</div>
+                    <div style={{ 
+                      color: BigInt(bet.reward) > 0n ? '#fbbf24' : '#6b7280',
+                      fontWeight: '700',
+                      fontFamily: 'monospace',
+                      fontSize: '0.875rem'
+                    }}>
+                      {formatEther(BigInt(bet.reward))} ETH
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Right Section: Action Button or Status */}
+              <div style={{ minWidth: '140px', display: 'flex', justifyContent: 'flex-end' }}>
                 {bet.canClaim && (
                   <button
                     onClick={() => claimReward(BigInt(bet.roundId))}
                     disabled={isClaimingThisRound}
                     style={{
-                      backgroundColor: isClaimingThisRound ? '#666666' : '#000000',
+                      padding: '0.5rem 1rem',
+                      backgroundColor: isClaimingThisRound ? '#374151' : '#d97706',
                       color: '#ffffff',
-                      border: '2px solid #000000',
-                      padding: '15px 20px',
-                      fontSize: '16px',
-                      fontWeight: 'bold',
-                      borderRadius: '8px',
+                      border: isClaimingThisRound ? '2px solid #4b5563' : '2px solid #f59e0b',
+                      borderRadius: '0.5rem',
+                      fontSize: '0.8125rem',
+                      fontWeight: '900',
                       cursor: isClaimingThisRound ? 'not-allowed' : 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px'
+                      gap: '0.375rem',
+                      transition: 'all 0.2s',
+                      whiteSpace: 'nowrap'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isClaimingThisRound) {
+                        e.currentTarget.style.transform = 'scale(1.05)';
+                        e.currentTarget.style.boxShadow = '0 0 20px rgba(245, 158, 11, 0.5)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isClaimingThisRound) {
+                        e.currentTarget.style.transform = 'scale(1)';
+                        e.currentTarget.style.boxShadow = 'none';
+                      }
                     }}
                   >
                     {isClaimingThisRound ? (
                       <>
-                        <span>⏳</span>
-                        <span>CLAIMING...</span>
+                        <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⏳</span>
+                        <span>CLAIMING</span>
                       </>
                     ) : (
                       <>
-                        <span>🎁</span>
-                        <span>CLAIM {formatEther(BigInt(bet.reward))} ETH</span>
+                        <Gift style={{ width: '1rem', height: '1rem' }} />
+                        <span>CLAIM</span>
                       </>
                     )}
                   </button>
                 )}
                 
                 {bet.claimed && BigInt(bet.reward) > 0n && (
-                  <div className="flex items-center gap-2 text-green-400">
-                    <CheckCircle className="w-4 h-4" />
-                    <span className="text-sm">Claimed</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div>
-                  <p className="text-gray-400">Bet Amount</p>
-                  <p className="text-white font-mono">{formatEther(totalBet)} ETH</p>
-                </div>
-                
-                <div>
-                  <p className="text-gray-400">Direction</p>
-                  <p className={`font-semibold ${betSide === Side.Up ? 'text-green-400' : 'text-red-400'}`}>
-                    {betSide === Side.Up ? 'UP' : 'DOWN'}
-                  </p>
-                </div>
-
-                {bet.round && bet.round.endTs && BigInt(bet.round.endTs) > 0n && (
-                  <>
-                    <div>
-                      <p className="text-gray-400">Price Change</p>
-                      <p className={`font-mono ${
-                        bet.round.endPrice && bet.round.startPrice && BigInt(bet.round.endPrice) > BigInt(bet.round.startPrice) ? 'text-green-400' : 
-                        bet.round.endPrice && bet.round.startPrice && BigInt(bet.round.endPrice) < BigInt(bet.round.startPrice) ? 'text-red-400' : 'text-gray-400'
-                      }`}>
-                        {bet.round.startPrice && bet.round.endPrice && (
-                          <>{formatPrice(BigInt(bet.round.startPrice))} → {formatPrice(BigInt(bet.round.endPrice))}</>
-                        )}
-                      </p>
-                    </div>
-                    
-                    <div>
-                      <p className="text-gray-400">Potential Reward</p>
-                      <p className="text-white font-mono">{formatEther(BigInt(bet.reward))} ETH</p>
-                    </div>
-                  </>
-                )}
-
-                {bet.round && bet.round.endTs && BigInt(bet.round.endTs) === 0n && (
-                  <div className="col-span-2">
-                    <p className="text-yellow-400 flex items-center gap-2">
-                      <Clock className="w-4 h-4" />
-                      Round in progress...
-                    </p>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '0.375rem',
+                    color: '#4ade80',
+                    fontSize: '0.8125rem',
+                    fontWeight: '700'
+                  }}>
+                    <CheckCircle style={{ width: '1.125rem', height: '1.125rem' }} />
+                    <span>CLAIMED</span>
                   </div>
                 )}
               </div>
             </div>
           );
         })}
+        
+        {/* Pagination Controls */}
+        {betHistory.length > itemsPerPage && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid #374151' }}>
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.75rem 1.5rem',
+                backgroundColor: currentPage === 1 ? '#1f2937' : '#374151',
+                color: currentPage === 1 ? '#6b7280' : '#ffffff',
+                border: '2px solid #4b5563',
+                borderRadius: '0.5rem',
+                fontSize: '1rem',
+                fontWeight: '700',
+                cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
+              }}
+            >
+              <ChevronLeft style={{ width: '1.25rem', height: '1.25rem' }} />
+              Previous
+            </button>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              {Array.from({ length: Math.ceil(betHistory.length / itemsPerPage) }, (_, i) => i + 1).map((page) => (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  style={{
+                    width: '3rem',
+                    height: '3rem',
+                    backgroundColor: currentPage === page ? '#4f46e5' : '#374151',
+                    color: '#ffffff',
+                    border: currentPage === page ? '2px solid #6366f1' : '2px solid #4b5563',
+                    borderRadius: '0.5rem',
+                    fontSize: '1.125rem',
+                    fontWeight: '900',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {page}
+                </button>
+              ))}
+            </div>
+            
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(Math.ceil(betHistory.length / itemsPerPage), prev + 1))}
+              disabled={currentPage === Math.ceil(betHistory.length / itemsPerPage)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.75rem 1.5rem',
+                backgroundColor: currentPage === Math.ceil(betHistory.length / itemsPerPage) ? '#1f2937' : '#374151',
+                color: currentPage === Math.ceil(betHistory.length / itemsPerPage) ? '#6b7280' : '#ffffff',
+                border: '2px solid #4b5563',
+                borderRadius: '0.5rem',
+                fontSize: '1rem',
+                fontWeight: '700',
+                cursor: currentPage === Math.ceil(betHistory.length / itemsPerPage) ? 'not-allowed' : 'pointer'
+              }}
+            >
+              Next
+              <ChevronRight style={{ width: '1.25rem', height: '1.25rem' }} />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

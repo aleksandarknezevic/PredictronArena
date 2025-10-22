@@ -1,11 +1,14 @@
 import { useWeb3 } from '../contexts/Web3Context';
+import { useTheme } from '../contexts/ThemeContext';
+import { Sun, Moon } from 'lucide-react';
 
 export function Header() {
   const { account, connectWallet, disconnectWallet, isConnecting } = useWeb3();
+  const { theme, toggleTheme } = useTheme();
 
   return (
-    <header className="bg-gray-800/80 backdrop-blur-sm border-b border-gray-700 sticky top-0 z-50">
-      <div className="container mx-auto px-4 py-6">
+    <header className="bg-card backdrop-blur-sm border-b border-gray-700 sticky top-0 z-50 compact-padding">
+      <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between relative">
           {/* Logo on Left */}
           <div className="flex items-center">
@@ -24,19 +27,58 @@ export function Header() {
             </h1>
           </div>
 
-          {/* Connection Status on Right */}
-          <div className="flex items-center space-x-4">
+          {/* Connection Status and Theme Toggle on Right */}
+          <div className="flex items-center space-x-3">
+            {/* Theme Toggle Button */}
+            <button
+              onClick={toggleTheme}
+              style={{
+                padding: '0.75rem',
+                backgroundColor: '#374151',
+                border: '2px solid #4b5563',
+                borderRadius: '0.5rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              aria-label="Toggle theme"
+            >
+              {theme === 'dark' ? (
+                <Sun style={{ width: '1.25rem', height: '1.25rem', color: '#facc15' }} />
+              ) : (
+                <Moon style={{ width: '1.25rem', height: '1.25rem', color: '#818cf8' }} />
+              )}
+            </button>
+
             {account ? (
-              <div className="flex items-center space-x-3">
-                <div className="flex items-center space-x-2 bg-green-500/20 px-3 py-2 rounded-lg border border-green-500/30">
-                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                  <span className="text-green-400 text-sm font-mono">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.5rem',
+                  backgroundColor: '#166534',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '0.5rem',
+                  border: '2px solid #22c55e'
+                }}>
+                  <div style={{ width: '8px', height: '8px', backgroundColor: '#4ade80', borderRadius: '50%', animation: 'pulse 2s infinite' }}></div>
+                  <span style={{ color: '#86efac', fontSize: '0.875rem', fontWeight: '600' }}>
                     {account.slice(0, 6)}...{account.slice(-4)}
                   </span>
                 </div>
                 <button
                   onClick={disconnectWallet}
-                  className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 rounded-lg transition-colors duration-200 text-sm font-medium"
+                  style={{
+                    padding: '0.5rem 1rem',
+                    backgroundColor: '#991b1b',
+                    color: '#ffffff',
+                    border: '2px solid #dc2626',
+                    borderRadius: '0.5rem',
+                    fontSize: '0.875rem',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
                 >
                   Disconnect
                 </button>
@@ -46,36 +88,30 @@ export function Header() {
           onClick={connectWallet}
           disabled={isConnecting}
           style={{
-            backgroundColor: '#ff0000',
+            padding: '0.75rem 1.5rem',
+            backgroundColor: '#4f46e5',
             color: '#ffffff',
-            padding: '12px 24px',
-            fontSize: '18px',
-            fontWeight: 'bold',
-            border: '3px solid #00ff00',
-            borderRadius: '8px',
-            cursor: 'pointer'
+            border: '2px solid #6366f1',
+            borderRadius: '0.5rem',
+            fontSize: '1rem',
+            fontWeight: '700',
+            cursor: isConnecting ? 'not-allowed' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {isConnecting ? (
-              <>
-                <div style={{
-                  width: '20px',
-                  height: '20px',
-                  border: '2px solid white',
-                  borderTop: '2px solid transparent',
-                  borderRadius: '50%',
-                  animation: 'spin 1s linear infinite'
-                }}></div>
-                <span style={{ color: 'white', fontWeight: 'bold' }}>Connecting...</span>
-              </>
-            ) : (
-              <>
-                <span style={{ fontSize: '24px' }}>🦊</span>
-                <span style={{ color: 'white', fontWeight: 'bold' }}>CONNECT METAMASK</span>
-              </>
-            )}
-          </div>
+          {isConnecting ? (
+            <>
+              <div style={{ width: '1rem', height: '1rem', border: '2px solid white', borderTop: '2px solid transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+              <span>Connecting...</span>
+            </>
+          ) : (
+            <>
+              <span style={{ fontSize: '1.25rem' }}>🦊</span>
+              <span>Connect Wallet</span>
+            </>
+          )}
         </button>
             )}
           </div>

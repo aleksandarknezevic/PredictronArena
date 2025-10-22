@@ -488,12 +488,12 @@ export const PlayTab: React.FC = () => {
   const bannerContent = getBannerContent();
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
       {/* Game Status Banner */}
-      <div className={`bg-gradient-to-r ${noActiveRound 
+      <div className={`bg-card glass-card bg-gradient-to-r ${noActiveRound 
         ? 'from-purple-600/20 via-blue-600/20 to-green-600/20 border-purple-400/50' 
         : 'from-orange-600/20 via-green-600/20 to-blue-600/20 border-orange-400/50'
-      } border-2 rounded-2xl p-6 text-center`}>
+      } border-2 rounded-lg compact-padding text-center`}>
         
         {/* Status Notice */}
         <div className="mb-4 p-3 bg-blue-900/30 rounded-lg border border-blue-600/50">
@@ -512,23 +512,23 @@ export const PlayTab: React.FC = () => {
       </div>
 
       {/* Current Price Display */}
-      <div className="glass-card p-8 border border-gray-600/50">
+      <div className="bg-card glass-card compact-padding border border-gray-600/50 rounded-lg">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-white mb-4 flex items-center justify-center gap-3">
-            <DollarSign className="w-8 h-8 text-green-400" />
+          <h2 className="text-lg font-bold text-white mb-3 flex items-center justify-center gap-2">
+            <DollarSign className="w-6 h-6 text-green-400" />
             Current ETH Price
           </h2>
-          <div className="text-5xl font-mono font-bold text-green-400 mb-2">
+          <div className="text-4xl font-mono font-bold text-green-400 mb-2">
             {formatPrice(currentPrice)}
           </div>
-          <p className="text-gray-300">Live price feed from Chainlink</p>
+          <p className="text-sm text-gray-300">Live price feed from Chainlink</p>
         </div>
       </div>
 
       {/* Round Information - Split into Current and Next Round */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Current Round Status */}
-        <div className={`glass-card p-6 border-2 ${noActiveRound 
+        <div className={`bg-card glass-card compact-padding border-2 rounded-lg ${noActiveRound 
           ? 'border-gray-500/50 bg-gray-900/10' 
           : 'border-orange-500/50 bg-orange-900/10'
         }`}>
@@ -578,7 +578,7 @@ export const PlayTab: React.FC = () => {
         </div>
 
         {/* Next Round - Open for Betting */}
-        <div className="glass-card p-6 border-2 border-green-500/50 bg-green-900/10">
+        <div className="bg-card glass-card compact-padding border-2 rounded-lg border-green-500/50 bg-green-900/10">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <Timer className="w-5 h-5 text-green-400" />
 {`Round #${nextRoundNumber} - BETTING OPEN`}
@@ -607,7 +607,7 @@ export const PlayTab: React.FC = () => {
       </div>
 
       {/* Next Round Pool Information */}
-      <div className="glass-card p-6 border border-green-600/50 bg-green-900/5">
+      <div className="bg-card glass-card compact-padding border rounded-lg border-green-600/50 bg-green-900/5">
         <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
           <DollarSign className="w-5 h-5 text-green-400" />
           {`Round #${nextRoundNumber} Pool (Next Round)`}
@@ -668,31 +668,31 @@ export const PlayTab: React.FC = () => {
             </p>
           </div>
 
-          <div className="max-w-2xl mx-auto space-y-8">
+          <div className="max-w-2xl mx-auto space-y-4">
             {/* Bet Amount - PROMINENT */}
-            <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 p-6 rounded-2xl border border-gray-600/50">
+            <div className="bg-card glass-card compact-padding rounded-lg border border-gray-600/50">
               <label className="block text-lg font-bold text-white mb-4 text-center">
                 💰 BET AMOUNT (ETH)
               </label>
               
                 {/* Quick amount buttons */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '10px', marginBottom: '20px' }}>
+                <div className="grid grid-cols-4 gap-3 mb-4">
                   {['0.005', '0.01', '0.05', '0.1'].map((amount) => (
                     <button
                       key={amount}
                       onClick={() => setBetAmount(amount)}
                       style={{
-                        backgroundColor: betAmount === amount ? '#000000' : '#ffffff',
-                        color: betAmount === amount ? '#ffffff' : '#000000',
-                        border: '2px solid #000000',
-                        padding: '10px 8px',
-                        fontSize: '14px',
-                        fontWeight: 'bold',
-                        borderRadius: '6px',
+                        backgroundColor: betAmount === amount ? '#4f46e5' : '#374151',
+                        color: '#ffffff',
+                        border: betAmount === amount ? '2px solid #ffffff' : '2px solid #6b7280',
+                        padding: '0.75rem 1rem',
+                        fontSize: '1.125rem',
+                        fontWeight: '900',
+                        borderRadius: '0.5rem',
                         cursor: 'pointer'
                       }}
                     >
-                      {amount} ETH
+                      {amount}
                     </button>
                   ))}
                 </div>
@@ -706,25 +706,26 @@ export const PlayTab: React.FC = () => {
                   onChange={(e) => setBetAmount(e.target.value)}
                   style={{
                     width: '100%',
-                    padding: '20px 60px 20px 20px',
-                    backgroundColor: '#ffffff',
-                    border: '2px solid #000000',
-                    borderRadius: '8px',
-                    color: '#000000',
-                    fontSize: '20px',
-                    fontWeight: 'bold',
+                    backgroundColor: '#1f2937',
+                    color: '#ffffff',
+                    border: '2px solid #6366f1',
+                    padding: '1rem 5rem 1rem 1.25rem',
+                    fontSize: '1.5rem',
+                    fontWeight: '700',
+                    borderRadius: '0.5rem',
                     textAlign: 'center'
                   }}
                   placeholder="0.01"
                 />
                 <div style={{
                   position: 'absolute',
-                  right: '15px',
+                  right: '1.25rem',
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  color: '#000000',
-                  fontSize: '18px',
-                  fontWeight: 'bold'
+                  fontSize: '1.25rem',
+                  fontWeight: '700',
+                  color: '#9ca3af',
+                  pointerEvents: 'none'
                 }}>
                   ETH
                 </div>
@@ -745,76 +746,72 @@ export const PlayTab: React.FC = () => {
                 <label className="block text-lg font-bold text-white text-center">
                   🎯 MAKE YOUR PREDICTION
                 </label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <button
                     onClick={() => setSelectedSide(Side.Up)}
                     style={{
-                      backgroundColor: selectedSide === Side.Up ? '#16a34a' : '#dcfce7',
-                      color: selectedSide === Side.Up ? '#ffffff' : '#15803d',
-                      border: '3px solid #000000',
-                      padding: '30px 20px',
-                      fontSize: '20px',
-                      fontWeight: 'bold',
-                      borderRadius: '10px',
+                      backgroundColor: '#16a34a',
+                      color: '#ffffff',
+                      border: selectedSide === Side.Up ? '4px solid #86efac' : '4px solid #22c55e',
+                      opacity: selectedSide === Side.Up ? 1 : 0.7,
+                      padding: '2rem 1.5rem',
+                      minHeight: '180px',
+                      fontSize: '2.25rem',
+                      fontWeight: '900',
+                      borderRadius: '1rem',
                       cursor: 'pointer',
-                      minHeight: '140px',
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      gap: '10px'
+                      gap: '0.75rem',
+                      transition: 'all 0.2s'
                     }}
                   >
-                    <span style={{ fontSize: '40px' }}>📈</span>
-                    <span style={{ fontSize: '24px' }}>UP</span>
-                    <span style={{ fontSize: '14px' }}>Price RISE</span>
+                    <TrendingUp style={{ width: '4rem', height: '4rem' }} />
+                    <span>UP</span>
+                    <span style={{ fontSize: '1.125rem', fontWeight: '700' }}>📈 PRICE RISE</span>
                   </button>
                   <button
                     onClick={() => setSelectedSide(Side.Down)}
                     style={{
-                      backgroundColor: selectedSide === Side.Down ? '#dc2626' : '#fee2e2',
-                      color: selectedSide === Side.Down ? '#ffffff' : '#b91c1c',
-                      border: '3px solid #000000',
-                      padding: '30px 20px',
-                      fontSize: '20px',
-                      fontWeight: 'bold',
-                      borderRadius: '10px',
+                      backgroundColor: '#dc2626',
+                      color: '#ffffff',
+                      border: selectedSide === Side.Down ? '4px solid #fca5a5' : '4px solid #ef4444',
+                      opacity: selectedSide === Side.Down ? 1 : 0.7,
+                      padding: '2rem 1.5rem',
+                      minHeight: '180px',
+                      fontSize: '2.25rem',
+                      fontWeight: '900',
+                      borderRadius: '1rem',
                       cursor: 'pointer',
-                      minHeight: '140px',
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      gap: '10px'
+                      gap: '0.75rem',
+                      transition: 'all 0.2s'
                     }}
                   >
-                    <span style={{ fontSize: '40px' }}>📉</span>
-                    <span style={{ fontSize: '24px' }}>DOWN</span>
-                    <span style={{ fontSize: '14px' }}>Price FALL</span>
+                    <TrendingDown style={{ width: '4rem', height: '4rem' }} />
+                    <span>DOWN</span>
+                    <span style={{ fontSize: '1.125rem', fontWeight: '700' }}>📉 PRICE FALL</span>
                   </button>
                 </div>
               
               {selectedSide && (
                 <div style={{
                   textAlign: 'center',
-                  marginTop: '20px',
-                  padding: '20px',
-                  backgroundColor: '#ffffff',
-                  border: '2px solid #000000',
-                  borderRadius: '8px'
+                  marginTop: '1rem',
+                  padding: '1.5rem',
+                  backgroundColor: selectedSide === Side.Up ? '#15803d' : '#991b1b',
+                  border: selectedSide === Side.Up ? '3px solid #4ade80' : '3px solid #f87171',
+                  borderRadius: '0.5rem'
                 }}>
-                  <div style={{
-                    fontSize: '18px',
-                    fontWeight: 'bold',
-                    color: '#000000',
-                    marginBottom: '5px'
-                  }}>
-                    ✅ You selected: {selectedSide === Side.Up ? '📈 UP' : '📉 DOWN'}
+                  <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#ffffff', marginBottom: '0.25rem' }}>
+                    ✅ You selected: {selectedSide === Side.Up ? <span style={{ color: '#86efac' }}>UP 📈</span> : <span style={{ color: '#fca5a5' }}>DOWN 📉</span>}
                   </div>
-                  <div style={{
-                    fontSize: '14px',
-                    color: '#000000'
-                  }}>
+                  <div style={{ fontSize: '1rem', fontWeight: '700', color: '#f3f4f6' }}>
                     You predict the price will {selectedSide === Side.Up ? 'RISE' : 'FALL'}
                   </div>
                 </div>
@@ -822,36 +819,37 @@ export const PlayTab: React.FC = () => {
             </div>
 
             {/* Place Bet Button */}
-            <div style={{ paddingTop: '30px' }}>
+            <div style={{ paddingTop: '1.5rem' }}>
               <button
                 onClick={placeBet}
                 disabled={!selectedSide || isPlacingBet}
                 style={{
                   width: '100%',
-                  backgroundColor: (!selectedSide || isPlacingBet) ? '#666666' : '#000000',
+                  backgroundColor: (!selectedSide || isPlacingBet) ? '#374151' : '#4f46e5',
                   color: '#ffffff',
-                  border: '3px solid #000000',
-                  padding: '25px',
-                  fontSize: '24px',
-                  fontWeight: 'bold',
-                  borderRadius: '10px',
+                  border: (!selectedSide || isPlacingBet) ? '4px solid #4b5563' : '4px solid #6366f1',
+                  padding: '1.75rem 2rem',
+                  fontSize: '1.875rem',
+                  fontWeight: '900',
+                  borderRadius: '0.75rem',
                   cursor: (!selectedSide || isPlacingBet) ? 'not-allowed' : 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '10px'
+                  gap: '1rem',
+                  transition: 'all 0.2s'
                 }}
               >
                 {isPlacingBet ? (
                   <>
-                    <span>⏳</span>
+                    <span style={{ animation: 'spin 1s linear infinite' }}>⏳</span>
                     <span>PLACING BET...</span>
                   </>
                 ) : (
                   <>
-                    <span>🎲</span>
+                    <Zap style={{ width: '2.5rem', height: '2.5rem' }} />
                     <span>PLACE BET NOW</span>
-                    <span>🚀</span>
+                    <Zap style={{ width: '2.5rem', height: '2.5rem' }} />
                   </>
                 )}
               </button>
@@ -859,18 +857,13 @@ export const PlayTab: React.FC = () => {
               {(!selectedSide || !betAmount) && (
                 <div style={{
                   textAlign: 'center',
-                  marginTop: '20px',
-                  backgroundColor: '#ffffff',
-                  border: '2px solid #000000',
-                  borderRadius: '8px',
-                  padding: '15px'
+                  marginTop: '1rem',
+                  backgroundColor: '#a16207',
+                  border: '3px solid #facc15',
+                  borderRadius: '0.5rem',
+                  padding: '1rem'
                 }}>
-                  <p style={{
-                    color: '#000000',
-                    fontSize: '16px',
-                    fontWeight: 'bold',
-                    margin: '0'
-                  }}>
+                  <p style={{ color: '#ffffff', fontSize: '1.125rem', fontWeight: '900', margin: 0 }}>
                     ⚠️ {!selectedSide ? 'Please select UP or DOWN first!' : 'Please enter bet amount!'}
                   </p>
                 </div>
