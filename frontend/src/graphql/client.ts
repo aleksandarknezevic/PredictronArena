@@ -14,11 +14,11 @@ export const apolloClient = new ApolloClient({
   defaultOptions: {
     watchQuery: {
       errorPolicy: 'all',
-      fetchPolicy: 'cache-and-network',
+      fetchPolicy: 'network-only', // Always fetch fresh data
     },
     query: {
       errorPolicy: 'all',
-      fetchPolicy: 'cache-first',
+      fetchPolicy: 'network-only', // Always fetch fresh data for real-time updates
     },
   },
 });
