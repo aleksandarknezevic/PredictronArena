@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import apolloClient from '../graphql/client';
 import { useWeb3 } from '../contexts/Web3Context';
+import { useTheme } from '../contexts/ThemeContext';
 import { 
   Trophy, 
   TrendingUp, 
@@ -34,6 +35,16 @@ interface BetHistory {
 
 export const HistoryTab: React.FC = () => {
   const { contract, account, chainId, isConnected } = useWeb3();
+  const { theme } = useTheme();
+  
+  // Theme-aware colors
+  const colors = {
+    cardBg: theme === 'dark' ? 'rgba(31, 41, 55, 0.6)' : 'rgba(255, 255, 255, 0.9)',
+    cardBorder: theme === 'dark' ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.8)',
+    text: theme === 'dark' ? '#ffffff' : '#111827',
+    textSecondary: theme === 'dark' ? '#9ca3af' : '#6b7280',
+    iconPrimary: theme === 'dark' ? '#818cf8' : '#6366f1',
+  };
   const [betHistory, setBetHistory] = useState<BetHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [claimingRounds, setClaimingRounds] = useState<Set<string>>(new Set());
@@ -284,69 +295,60 @@ export const HistoryTab: React.FC = () => {
     return bet.canClaim ? sum + BigInt(bet.reward) : sum;
   }, 0n);
 
+  // Calculate unique rounds and win rate for summary
+  const uniqueRounds = new Set(betHistory.map(bet => bet.roundId));
+  const totalUniqueRounds = uniqueRounds.size;
+  
+  const roundsMap = new Map<string, boolean>();
+  betHistory.forEach(bet => {
+    if (bet.round && bet.round.endTs !== null && bet.round.endTs !== undefined && bet.round.endTs !== "0") {
+      if (!roundsMap.has(bet.roundId)) {
+        const netPnl = BigInt(bet.netPnl || '0');
+        roundsMap.set(bet.roundId, netPnl > 0n);
+      }
+    }
+  });
+  const finishedRoundsCount = roundsMap.size;
+  const wonRoundsCount = Array.from(roundsMap.values()).filter(won => won).length;
+  const winRate = finishedRoundsCount > 0 ? Math.round((wonRoundsCount / finishedRoundsCount) * 100) : 0;
+
   return (
-    <div className="space-y-4">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Total Bets */}
-        <div className="bg-card glass-card compact-padding rounded-lg border border-gray-700/50 hover:scale-[1.02] transition-all duration-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-400 uppercase tracking-wider">Total Rounds</p>
-              <p className="text-2xl font-bold text-white mt-1">
-                {(() => {
-                  // Count unique rounds (since we split UP/DOWN bets into separate entries)
-                  const uniqueRounds = new Set(betHistory.map(bet => bet.roundId));
-                  return uniqueRounds.size;
-                })()}
-              </p>
-            </div>
-            <HistoryIcon className="w-10 h-10 text-ai-400" />
-          </div>
+    <div className="space-y-3">
+      {/* Summary - Stats Style Single Row */}
+      <div style={{
+        backgroundColor: colors.cardBg,
+        border: `1px solid ${colors.cardBorder}`,
+        borderRadius: '0.5rem',
+        padding: '1rem'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+          <HistoryIcon style={{ width: '1.25rem', height: '1.25rem', color: colors.iconPrimary }} />
+          <span style={{ fontSize: '1rem', fontWeight: '700', color: colors.text }}>QUICK STATS</span>
         </div>
-
-        {/* Win Rate */}
-        <div className="bg-card glass-card compact-padding rounded-lg border border-green-700/50 hover:scale-[1.02] transition-all duration-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-green-300 uppercase tracking-wider">Win Rate</p>
-              <p className="text-2xl font-bold text-green-400 mt-1">
-                {betHistory.length > 0 
-                  ? (() => {
-                      // Group by round ID to count unique rounds (not individual bet entries)
-                      const roundsMap = new Map<string, boolean>();
-                      
-                      betHistory.forEach(bet => {
-                        if (bet.round && bet.round.endTs !== null && bet.round.endTs !== undefined && bet.round.endTs !== "0") {
-                          // Use netPnl to determine if the round was profitable overall (matches backend logic)
-                          if (!roundsMap.has(bet.roundId)) {
-                            const netPnl = BigInt(bet.netPnl || '0');
-                            roundsMap.set(bet.roundId, netPnl > 0n);
-                          }
-                        }
-                      });
-                      
-                      const finishedRoundsCount = roundsMap.size;
-                      const wonRoundsCount = Array.from(roundsMap.values()).filter(won => won).length;
-                      
-                      return finishedRoundsCount > 0 ? `${Math.round((wonRoundsCount / finishedRoundsCount) * 100)}%` : '0%';
-                    })()
-                  : '0%'
-                }
-              </p>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+          <div style={{ textAlign: 'center' }}>
+            <HistoryIcon style={{ width: '1.5rem', height: '1.5rem', color: '#3b82f6', margin: '0 auto 0.25rem' }} />
+            <div style={{ fontSize: '1.75rem', fontWeight: '900', color: '#3b82f6' }}>
+              {totalUniqueRounds}
             </div>
-            <Trophy className="w-10 h-10 text-green-400" />
+            <div style={{ fontSize: '0.75rem', color: colors.textSecondary }}>Total Rounds</div>
           </div>
-        </div>
-
-        {/* Claimable Rewards */}
-        <div className="bg-card glass-card compact-padding rounded-lg border border-yellow-700/50 hover:scale-[1.02] transition-all duration-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-yellow-300 uppercase tracking-wider">Claimable</p>
-              <p className="text-2xl font-bold text-yellow-400 mt-1">{formatEther(totalClaimable)} ETH</p>
+          
+          <div style={{ textAlign: 'center' }}>
+            <Trophy style={{ width: '1.5rem', height: '1.5rem', color: '#22c55e', margin: '0 auto 0.25rem' }} />
+            <div style={{ fontSize: '1.75rem', fontWeight: '900', color: '#22c55e' }}>
+              {winRate}%
             </div>
-            <Gift className="w-10 h-10 text-yellow-400" />
+            <div style={{ fontSize: '0.75rem', color: colors.textSecondary }}>Win Rate</div>
+          </div>
+          
+          <div style={{ textAlign: 'center' }}>
+            <Gift style={{ width: '1.5rem', height: '1.5rem', color: '#f59e0b', margin: '0 auto 0.25rem' }} />
+            <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#f59e0b', fontFamily: 'monospace' }}>
+              {formatEther(totalClaimable)}
+            </div>
+            <div style={{ fontSize: '0.7rem', color: colors.textSecondary }}>Claimable ETH</div>
           </div>
         </div>
       </div>
@@ -394,8 +396,8 @@ export const HistoryTab: React.FC = () => {
             <div 
               key={`${bet.roundId}-${betSide === Side.Up ? 'up' : 'down'}`} 
               style={{
-                backgroundColor: 'rgba(31, 41, 55, 0.6)',
-                border: '1px solid rgba(75, 85, 99, 0.5)',
+                backgroundColor: colors.cardBg,
+                border: `1px solid ${colors.cardBorder}`,
                 borderRadius: '0.5rem',
                 padding: '0.75rem 1rem',
                 display: 'flex',
@@ -406,12 +408,12 @@ export const HistoryTab: React.FC = () => {
                 cursor: 'default'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(31, 41, 55, 0.9)';
-                e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.5)';
+                e.currentTarget.style.backgroundColor = theme === 'dark' ? 'rgba(31, 41, 55, 0.9)' : 'rgba(243, 244, 246, 0.9)';
+                e.currentTarget.style.borderColor = theme === 'dark' ? 'rgba(99, 102, 241, 0.5)' : '#6366f1';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(31, 41, 55, 0.6)';
-                e.currentTarget.style.borderColor = 'rgba(75, 85, 99, 0.5)';
+                e.currentTarget.style.backgroundColor = colors.cardBg;
+                e.currentTarget.style.borderColor = colors.cardBorder;
               }}
             >
               {/* Left Section: Round Info & Status */}
@@ -419,16 +421,16 @@ export const HistoryTab: React.FC = () => {
                 <div style={{ 
                   fontSize: '0.875rem', 
                   fontWeight: '700', 
-                  color: '#9ca3af',
+                  color: colors.textSecondary,
                   minWidth: '60px'
                 }}>
                   #{bet.roundId.toString()}
                 </div>
                 
                 {betSide === Side.Up ? (
-                  <TrendingUp style={{ width: '1.125rem', height: '1.125rem', color: '#4ade80', flexShrink: 0 }} />
+                  <TrendingUp style={{ width: '1.125rem', height: '1.125rem', color: '#22c55e', flexShrink: 0 }} />
                 ) : (
-                  <TrendingDown style={{ width: '1.125rem', height: '1.125rem', color: '#f87171', flexShrink: 0 }} />
+                  <TrendingDown style={{ width: '1.125rem', height: '1.125rem', color: '#ef4444', flexShrink: 0 }} />
                 )}
                 
                 <div style={{
@@ -440,10 +442,10 @@ export const HistoryTab: React.FC = () => {
                                    betResult === 'lost' ? 'rgba(239, 68, 68, 0.2)' :
                                    betResult === 'pending' ? 'rgba(234, 179, 8, 0.2)' :
                                    'rgba(107, 114, 128, 0.2)',
-                  color: betResult === 'won' ? '#4ade80' :
-                         betResult === 'lost' ? '#f87171' :
-                         betResult === 'pending' ? '#fbbf24' :
-                         '#9ca3af'
+                  color: betResult === 'won' ? '#22c55e' :
+                         betResult === 'lost' ? '#ef4444' :
+                         betResult === 'pending' ? '#f59e0b' :
+                         colors.textSecondary
                 }}>
                   {betResult === 'won' ? 'WON' : 
                    betResult === 'lost' ? 'LOST' : 
@@ -461,17 +463,17 @@ export const HistoryTab: React.FC = () => {
               }}>
                 {/* Bet Amount */}
                 <div style={{ minWidth: '90px' }}>
-                  <div style={{ color: '#6b7280', fontSize: '0.75rem', marginBottom: '0.125rem' }}>BET</div>
-                  <div style={{ color: '#ffffff', fontWeight: '700', fontFamily: 'monospace' }}>
+                  <div style={{ color: colors.textSecondary, fontSize: '0.75rem', marginBottom: '0.125rem' }}>BET</div>
+                  <div style={{ color: colors.text, fontWeight: '700', fontFamily: 'monospace' }}>
                     {formatEther(totalBet)} ETH
                   </div>
                 </div>
 
                 {/* Direction */}
                 <div style={{ minWidth: '60px' }}>
-                  <div style={{ color: '#6b7280', fontSize: '0.75rem', marginBottom: '0.125rem' }}>SIDE</div>
+                  <div style={{ color: colors.textSecondary, fontSize: '0.75rem', marginBottom: '0.125rem' }}>SIDE</div>
                   <div style={{ 
-                    color: betSide === Side.Up ? '#4ade80' : '#f87171',
+                    color: betSide === Side.Up ? '#22c55e' : '#ef4444',
                     fontWeight: '900',
                     fontSize: '0.875rem'
                   }}>
@@ -482,13 +484,13 @@ export const HistoryTab: React.FC = () => {
                 {/* Price Change (only if round ended) */}
                 {bet.round && bet.round.endTs && BigInt(bet.round.endTs) > 0n && (
                   <div style={{ minWidth: '160px' }}>
-                    <div style={{ color: '#6b7280', fontSize: '0.75rem', marginBottom: '0.125rem' }}>PRICE</div>
+                    <div style={{ color: colors.textSecondary, fontSize: '0.75rem', marginBottom: '0.125rem' }}>PRICE</div>
                     <div style={{ 
                       fontFamily: 'monospace',
                       fontSize: '0.8125rem',
                       fontWeight: '600',
-                      color: bet.round.endPrice && bet.round.startPrice && BigInt(bet.round.endPrice) > BigInt(bet.round.startPrice) ? '#4ade80' : 
-                             bet.round.endPrice && bet.round.startPrice && BigInt(bet.round.endPrice) < BigInt(bet.round.startPrice) ? '#f87171' : '#9ca3af'
+                      color: bet.round.endPrice && bet.round.startPrice && BigInt(bet.round.endPrice) > BigInt(bet.round.startPrice) ? '#22c55e' : 
+                             bet.round.endPrice && bet.round.startPrice && BigInt(bet.round.endPrice) < BigInt(bet.round.startPrice) ? '#ef4444' : colors.textSecondary
                     }}>
                       {bet.round.startPrice && bet.round.endPrice ? (
                         <>{formatPrice(BigInt(bet.round.startPrice))} → {formatPrice(BigInt(bet.round.endPrice))}</>
@@ -499,7 +501,7 @@ export const HistoryTab: React.FC = () => {
 
                 {/* Pending indicator */}
                 {bet.round && bet.round.endTs && BigInt(bet.round.endTs) === 0n && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: '#fbbf24' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: '#f59e0b' }}>
                     <Clock style={{ width: '1rem', height: '1rem' }} />
                     <span style={{ fontSize: '0.8125rem', fontWeight: '600' }}>In progress...</span>
                   </div>
@@ -508,9 +510,9 @@ export const HistoryTab: React.FC = () => {
                 {/* Reward (only if round ended) */}
                 {bet.round && bet.round.endTs && BigInt(bet.round.endTs) > 0n && (
                   <div style={{ minWidth: '100px' }}>
-                    <div style={{ color: '#6b7280', fontSize: '0.75rem', marginBottom: '0.125rem' }}>REWARD</div>
+                    <div style={{ color: colors.textSecondary, fontSize: '0.75rem', marginBottom: '0.125rem' }}>REWARD</div>
                     <div style={{ 
-                      color: BigInt(bet.reward) > 0n ? '#fbbf24' : '#6b7280',
+                      color: BigInt(bet.reward) > 0n ? '#f59e0b' : colors.textSecondary,
                       fontWeight: '700',
                       fontFamily: 'monospace',
                       fontSize: '0.875rem'

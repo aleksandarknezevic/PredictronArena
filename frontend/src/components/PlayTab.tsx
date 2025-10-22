@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useWeb3 } from '../contexts/Web3Context';
+import { useTheme } from '../contexts/ThemeContext';
 import { 
   TrendingUp, 
   TrendingDown, 
-  Clock, 
   DollarSign, 
   Zap,
   Brain,
@@ -20,6 +20,24 @@ import { gql } from '@apollo/client';
 
 export const PlayTab: React.FC = () => {
   const { contract, account, chainId, isConnected } = useWeb3();
+  const { theme } = useTheme();
+  
+  // Theme-aware colors
+  const colors = {
+    cardBg: theme === 'dark' ? 'rgba(31, 41, 55, 0.6)' : 'rgba(255, 255, 255, 0.9)',
+    cardBorder: theme === 'dark' ? 'rgba(75, 85, 99, 0.5)' : 'rgba(209, 213, 219, 0.8)',
+    text: theme === 'dark' ? '#ffffff' : '#111827',
+    textSecondary: theme === 'dark' ? '#9ca3af' : '#6b7280',
+    statusBannerBg: (isActive: boolean) => isActive 
+      ? (theme === 'dark' ? 'rgba(249, 115, 22, 0.15)' : 'rgba(249, 115, 22, 0.2)')
+      : (theme === 'dark' ? 'rgba(139, 92, 246, 0.15)' : 'rgba(139, 92, 246, 0.2)'),
+    statusBannerBorder: (isActive: boolean) => isActive
+      ? (theme === 'dark' ? 'rgba(251, 146, 60, 0.4)' : 'rgba(251, 146, 60, 0.6)')
+      : (theme === 'dark' ? 'rgba(167, 139, 250, 0.4)' : 'rgba(167, 139, 250, 0.6)'),
+    statusBannerText: (isActive: boolean) => isActive
+      ? (theme === 'dark' ? '#fdba74' : '#ea580c')
+      : (theme === 'dark' ? '#c4b5fd' : '#7c3aed'),
+  };
   const [currentRound, setCurrentRound] = useState<Round | null>(null);
   const [nextRound, setNextRound] = useState<Round | null>(null);
   const [nextRoundId, setNextRoundId] = useState<bigint>(0n);
@@ -204,10 +222,12 @@ export const PlayTab: React.FC = () => {
         
         setNextRound(roundData);
         console.log('Set nextRound state from', nextRoundData ? 'rounds mapping' : 'direct pool data', ':', {
+          roundId: roundData.id.toString(),
           totalUp: roundData.totalUp.toString(),
           totalDown: roundData.totalDown.toString(),
           totalUpFormatted: formatEther(roundData.totalUp),
-          totalDownFormatted: formatEther(roundData.totalDown)
+          totalDownFormatted: formatEther(roundData.totalDown),
+          dataSource: nextRoundData ? 'contract rounds(nextId)' : 'backend GraphQL query'
         });
       } else {
         console.log('No round data available, setting null');
@@ -317,6 +337,18 @@ export const PlayTab: React.FC = () => {
 
   const { currentRoundNumber, nextRoundNumber, hasActiveRound } = determineRoundNumbers();
   
+  // Debug: Log next round pool display logic
+  console.log('🎯 NEXT ROUND POOL DISPLAY CHECK:', {
+    nextRoundExists: !!nextRound,
+    nextRoundId: nextRound?.id.toString(),
+    nextRoundNumber: nextRoundNumber,
+    idsMatch: nextRound ? Number(nextRound.id) === nextRoundNumber : false,
+    totalUp: nextRound?.totalUp.toString(),
+    totalDown: nextRound?.totalDown.toString(),
+    hasPoolData: nextRound ? (nextRound.totalUp > 0n || nextRound.totalDown > 0n) : false,
+    willShowPool: nextRound && Number(nextRound.id) === nextRoundNumber && (nextRound.totalUp > 0n || nextRound.totalDown > 0n)
+  });
+  
   // Calculate round status for use in useEffect - USING BACKEND DATA
   const currentTime = Math.floor(Date.now() / 1000);
   
@@ -392,10 +424,10 @@ export const PlayTab: React.FC = () => {
 
   if (!isConnected) {
     return (
-      <div className="glass-card text-center py-12">
+      <div className="text-center py-12">
         <Zap className="w-16 h-16 text-indigo-400 mx-auto mb-4 animate-pulse" />
         <h3 className="text-xl font-semibold text-white mb-2">Connect Your Wallet</h3>
-        <p className="text-gray-300">Connect MetaMask to start playing PredictronArena</p>
+        <p className="text-gray-400">Connect MetaMask to start playing PredictronArena</p>
       </div>
     );
   }
@@ -470,202 +502,236 @@ export const PlayTab: React.FC = () => {
     timestamp: new Date().toLocaleTimeString()
   });
 
-  // Determine banner messaging based on round state
-  const getBannerContent = () => {
-    if (noActiveRound) {
-      return {
-        title: `🔮 ROUND #${currentRoundNumber} ENDED • ROUND #${nextRoundNumber} BETTING OPEN! 🎯`,
-        subtitle: `Round #${currentRoundNumber} finished • Place bets for Round #${nextRoundNumber} below ⬇️`
-      };
-    } else {
-      return {
-        title: `🔥 ROUND #${currentRoundNumber} ACTIVE • ROUND #${nextRoundNumber} BETTING OPEN! 🔥`,
-        subtitle: `Round #${currentRoundNumber} is running ⏰ • Place bets for Round #${nextRoundNumber} below ⬇️`
-      };
-    }
-  };
-
-  const bannerContent = getBannerContent();
-
   return (
-    <div className="space-y-4">
-      {/* Game Status Banner */}
-      <div className={`bg-card glass-card bg-gradient-to-r ${noActiveRound 
-        ? 'from-purple-600/20 via-blue-600/20 to-green-600/20 border-purple-400/50' 
-        : 'from-orange-600/20 via-green-600/20 to-blue-600/20 border-orange-400/50'
-      } border-2 rounded-lg compact-padding text-center`}>
-        
-        {/* Status Notice */}
-        <div className="mb-4 p-3 bg-blue-900/30 rounded-lg border border-blue-600/50">
-          <p className="text-blue-300 text-sm">
-            ℹ️ <strong>Current Status:</strong> {hasActiveRound ? 'Active round in progress' : 'No active round'}. 
-            Round {currentRoundNumber} {hasActiveRound ? 'active' : 'completed'} → Round {nextRoundNumber} open for betting.
-          </p>
+    <div className="space-y-3">
+      {/* Compact Status Banner */}
+      <div style={{
+        backgroundColor: colors.statusBannerBg(!noActiveRound),
+        border: `2px solid ${colors.statusBannerBorder(!noActiveRound)}`,
+        borderRadius: '0.5rem',
+        padding: '0.75rem 1rem',
+        textAlign: 'center'
+      }}>
+        <div style={{ 
+          fontSize: '1.25rem', 
+          fontWeight: '900', 
+          color: colors.statusBannerText(!noActiveRound),
+          marginBottom: '0.25rem'
+        }}>
+          {noActiveRound ? '🏁' : '🔥'} ROUND #{currentRoundNumber} {hasActiveRound ? 'ACTIVE' : 'ENDED'} • ROUND #{nextRoundNumber} OPEN 🎯
         </div>
-
-        <div className={`text-2xl font-black mb-2 ${noActiveRound ? 'text-purple-400' : 'text-orange-400'}`}>
-          {bannerContent.title}
-        </div>
-        <div className="text-lg text-white">
-          {bannerContent.subtitle}
+        <div style={{ fontSize: '0.875rem', color: colors.textSecondary }}>
+          {hasActiveRound ? 'Round in progress' : 'Round completed'} • Betting open for Round #{nextRoundNumber}
         </div>
       </div>
 
-      {/* Current Price Display */}
-      <div className="bg-card glass-card compact-padding border border-gray-600/50 rounded-lg">
-        <div className="text-center">
-          <h2 className="text-lg font-bold text-white mb-3 flex items-center justify-center gap-2">
-            <DollarSign className="w-6 h-6 text-green-400" />
-            Current ETH Price
-          </h2>
-          <div className="text-4xl font-mono font-bold text-green-400 mb-2">
+      {/* Compact Price + Round Info in One Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '0.75rem' }}>
+        {/* Current Price - Compact */}
+        <div style={{
+          backgroundColor: colors.cardBg,
+          border: theme === 'dark' ? '1px solid rgba(34, 197, 94, 0.3)' : `1px solid ${colors.cardBorder}`,
+          borderRadius: '0.5rem',
+          padding: '0.75rem 1rem',
+          textAlign: 'center'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem', marginBottom: '0.375rem' }}>
+            <DollarSign style={{ width: '1rem', height: '1rem', color: '#22c55e' }} />
+            <span style={{ fontSize: '0.75rem', color: colors.textSecondary, fontWeight: '700' }}>ETH PRICE</span>
+          </div>
+          <div style={{ 
+            fontSize: '1.75rem', 
+            fontWeight: '900', 
+            fontFamily: 'monospace', 
+            color: '#22c55e' 
+          }}>
             {formatPrice(currentPrice)}
           </div>
-          <p className="text-sm text-gray-300">Live price feed from Chainlink</p>
+          <div style={{ fontSize: '0.7rem', color: colors.textSecondary }}>Chainlink</div>
         </div>
-      </div>
 
-      {/* Round Information - Split into Current and Next Round */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Current Round Status */}
-        <div className={`bg-card glass-card compact-padding border-2 rounded-lg ${noActiveRound 
-          ? 'border-gray-500/50 bg-gray-900/10' 
-          : 'border-orange-500/50 bg-orange-900/10'
-        }`}>
-          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            {noActiveRound ? (
-              <>
-                <CheckCircle className="w-5 h-5 text-gray-400" />
-{`Round #${currentRoundNumber} - ENDED`}
-              </>
-            ) : (
-              <>
-                <Activity className="w-5 h-5 text-orange-400 animate-pulse" />
-{`Round #${currentRoundNumber} - ACTIVE`}
-              </>
-            )}
-          </h3>
-          
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-gray-400">Status:</span>
+        {/* Round Status - Compact Side-by-Side */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+          {/* Current Round - Enhanced */}
+          <div style={{
+            backgroundColor: noActiveRound 
+              ? (theme === 'dark' ? 'rgba(75, 85, 99, 0.2)' : 'rgba(229, 231, 235, 0.5)') 
+              : (theme === 'dark' ? 'rgba(249, 115, 22, 0.2)' : 'rgba(254, 243, 199, 0.5)'),
+            border: noActiveRound 
+              ? (theme === 'dark' ? '1px solid rgba(107, 114, 128, 0.3)' : `1px solid ${colors.cardBorder}`)
+              : (theme === 'dark' ? '1px solid rgba(251, 146, 60, 0.4)' : '1px solid #fb923c'),
+            borderRadius: '0.5rem',
+            padding: '0.75rem 1rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.5rem' }}>
               {noActiveRound ? (
-                <span className="text-gray-400 font-semibold">✅ COMPLETED</span>
+                <CheckCircle style={{ width: '1rem', height: '1rem', color: colors.textSecondary }} />
               ) : (
-                <span className="text-orange-400 font-semibold animate-pulse">🔴 RUNNING</span>
+                <Activity style={{ width: '1rem', height: '1rem', color: '#f97316' }} />
               )}
-            </div>
-            {!noActiveRound && (
-              <div className="flex justify-between">
-                <span className="text-gray-400">Ends in:</span>
-                <span className="text-orange-300 font-mono font-bold">{formatTime(currentRoundTimeRemaining)}</span>
-              </div>
-            )}
-            <div className="flex justify-between">
-              <span className="text-gray-400">Current Price:</span>
-              <span className="text-white font-mono">{formatPrice(currentPrice)}</span>
-            </div>
-            <div className={`pt-2 border-t ${noActiveRound ? 'border-gray-700/50' : 'border-orange-700/50'}`}>
-              <div className="text-center">
-                {noActiveRound ? (
-                  <p className="text-gray-300 text-sm font-semibold">🏁 Round Finished</p>
-                ) : (
-                  <p className="text-orange-300 text-sm font-semibold">⏳ Betting Closed - Round in Progress</p>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Next Round - Open for Betting */}
-        <div className="bg-card glass-card compact-padding border-2 rounded-lg border-green-500/50 bg-green-900/10">
-          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <Timer className="w-5 h-5 text-green-400" />
-{`Round #${nextRoundNumber} - BETTING OPEN`}
-          </h3>
-          
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-gray-400">Status:</span>
-              <span className="text-green-400 font-semibold">🟢 ACCEPTING BETS</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">Starts in:</span>
-              <span className="text-green-300 font-mono font-bold">{formatTime(nextRoundTimeUntilStart)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">Start Price:</span>
-              <span className="text-gray-500 font-mono">TBD</span>
-            </div>
-            <div className="pt-2 border-t border-green-700/50">
-              <div className="text-center">
-                <p className="text-green-300 text-sm font-semibold">✅ Place your bets below!</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Next Round Pool Information */}
-      <div className="bg-card glass-card compact-padding border rounded-lg border-green-600/50 bg-green-900/5">
-        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <DollarSign className="w-5 h-5 text-green-400" />
-          {`Round #${nextRoundNumber} Pool (Next Round)`}
-        </h3>
-        
-        {nextRound && nextRound.totalUp === 0n && nextRound.totalDown === 0n && (
-          <div className="mb-3 p-3 bg-blue-900/30 rounded-lg border border-blue-600/50">
-            <p className="text-blue-300 text-sm">
-              💡 <strong>Round #{nextRoundNumber} is ready for bets!</strong> Be the first to place a bet.
-            </p>
-          </div>
-        )}
-        <div className="space-y-3">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-green-400" />
-              <span className="text-gray-400">Up Bets:</span>
-            </div>
-            <span className="text-green-400 font-mono">
-              {nextRound ? `${formatEther(nextRound.totalUp)} ETH` : '0.000 ETH'}
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <TrendingDown className="w-4 h-4 text-red-400" />
-              <span className="text-gray-400">Down Bets:</span>
-            </div>
-            <span className="text-red-400 font-mono">
-              {nextRound ? `${formatEther(nextRound.totalDown)} ETH` : '0.000 ETH'}
-            </span>
-          </div>
-          <div className="pt-2 border-t border-gray-700">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-400 font-semibold">Total Pool:</span>
-              <span className="text-white font-mono font-bold">
-                {nextRound 
-                  ? `${formatEther(nextRound.totalUp + nextRound.totalDown)} ETH`
-                  : '0.000 ETH'
-                }
+              <span style={{ fontSize: '0.75rem', fontWeight: '700', color: colors.text }}>
+                ROUND #{currentRoundNumber}
               </span>
             </div>
+            <div style={{ fontSize: '0.75rem', color: noActiveRound ? colors.textSecondary : '#f97316', marginBottom: '0.5rem' }}>
+              {noActiveRound ? '✅ ENDED' : '🔴 ACTIVE'}
+            </div>
+            
+            {/* Show countdown for active round */}
+            {!noActiveRound && (
+              <div style={{ fontSize: '0.875rem', fontFamily: 'monospace', fontWeight: '700', color: '#f97316', marginBottom: '0.5rem' }}>
+                {formatTime(currentRoundTimeRemaining)}
+              </div>
+            )}
+            
+            {/* Show prices */}
+            {currentRound && (
+              <div style={{ fontSize: '0.7rem', color: colors.textSecondary, display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                {currentRound.startPrice && currentRound.startPrice > 0n && (
+                  <div>
+                    <span style={{ color: colors.textSecondary }}>Start: </span>
+                    <span style={{ fontFamily: 'monospace', fontWeight: '700', color: colors.text }}>
+                      {formatPrice(currentRound.startPrice)}
+                    </span>
+                  </div>
+                )}
+                {noActiveRound && currentRound.endPrice && currentRound.endPrice > 0n && (
+                  <div>
+                    <span style={{ color: colors.textSecondary }}>End: </span>
+                    <span style={{ fontFamily: 'monospace', fontWeight: '700', color: colors.text }}>
+                      {formatPrice(currentRound.endPrice)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Pool info for current round */}
+            {currentRound && Number(currentRound.id) === currentRoundNumber && (currentRound.totalUp > 0n || currentRound.totalDown > 0n) && (
+              <div style={{ 
+                borderTop: `1px solid ${colors.cardBorder}`,
+                paddingTop: '0.5rem',
+                marginTop: '0.5rem',
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr 1fr',
+                gap: '0.5rem',
+                fontSize: '0.7rem'
+              }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ color: colors.textSecondary, marginBottom: '0.125rem' }}>UP</div>
+                  <div style={{ fontFamily: 'monospace', fontWeight: '700', color: '#22c55e' }}>
+                    {formatEther(currentRound.totalUp)}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ color: colors.textSecondary, marginBottom: '0.125rem' }}>DOWN</div>
+                  <div style={{ fontFamily: 'monospace', fontWeight: '700', color: '#ef4444' }}>
+                    {formatEther(currentRound.totalDown)}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ color: colors.textSecondary, marginBottom: '0.125rem' }}>TOTAL</div>
+                  <div style={{ fontFamily: 'monospace', fontWeight: '700', color: colors.text }}>
+                    {formatEther(currentRound.totalUp + currentRound.totalDown)}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Next Round - With Pool Info Merged */}
+          <div style={{
+            backgroundColor: theme === 'dark' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(220, 252, 231, 0.6)',
+            border: theme === 'dark' ? '1px solid rgba(74, 222, 128, 0.4)' : '1px solid #22c55e',
+            borderRadius: '0.5rem',
+            padding: '0.75rem 1rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.5rem' }}>
+              <Timer style={{ width: '1rem', height: '1rem', color: '#22c55e' }} />
+              <span style={{ fontSize: '0.75rem', fontWeight: '700', color: colors.text }}>
+                ROUND #{nextRoundNumber}
+              </span>
+            </div>
+            <div style={{ fontSize: '0.75rem', color: '#22c55e', marginBottom: '0.25rem' }}>
+              🟢 OPEN
+            </div>
+            <div style={{ fontSize: '0.875rem', fontFamily: 'monospace', fontWeight: '700', color: '#22c55e', marginBottom: '0.5rem' }}>
+              {formatTime(nextRoundTimeUntilStart)}
+            </div>
+            
+            {/* Pool info merged - only show if there are bets AND round ID matches */}
+            {nextRound && Number(nextRound.id) === nextRoundNumber && (nextRound.totalUp > 0n || nextRound.totalDown > 0n) && (
+              <div style={{ 
+                borderTop: `1px solid ${colors.cardBorder}`,
+                paddingTop: '0.5rem',
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr 1fr',
+                gap: '0.5rem',
+                fontSize: '0.7rem'
+              }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ color: colors.textSecondary, marginBottom: '0.125rem' }}>UP</div>
+                  <div style={{ fontFamily: 'monospace', fontWeight: '700', color: '#22c55e' }}>
+                    {formatEther(nextRound.totalUp)}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ color: colors.textSecondary, marginBottom: '0.125rem' }}>DOWN</div>
+                  <div style={{ fontFamily: 'monospace', fontWeight: '700', color: '#ef4444' }}>
+                    {formatEther(nextRound.totalDown)}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ color: colors.textSecondary, marginBottom: '0.125rem' }}>TOTAL</div>
+                  <div style={{ fontFamily: 'monospace', fontWeight: '700', color: colors.text }}>
+                    {formatEther(nextRound.totalUp + nextRound.totalDown)}
+                  </div>
+                </div>
+              </div>
+            )}
+            {(!nextRound || Number(nextRound.id) !== nextRoundNumber || (nextRound.totalUp === 0n && nextRound.totalDown === 0n)) && (
+              <div style={{ 
+                borderTop: `1px solid ${colors.cardBorder}`,
+                paddingTop: '0.5rem',
+                textAlign: 'center',
+                fontSize: '0.75rem',
+                color: '#3b82f6',
+                fontWeight: '600'
+              }}>
+                💡 No bets yet - be the first!
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Betting Interface for Next Round - SUPER PROMINENT */}
+      {/* Betting Interface for Next Round */}
       {canBetOnNextRound && (
-        <div className="glass-card p-8 border-2 border-green-500/50 bg-gradient-to-br from-green-900/20 to-blue-900/20">
-          <h3 className="text-3xl font-black text-white mb-8 text-center flex items-center justify-center gap-4">
-            <Timer className="w-12 h-12 text-green-400 animate-pulse" />
-            🎮 BET ON ROUND #{nextRoundNumber} 🎮
-            <Timer className="w-12 h-12 text-green-400 animate-pulse" />
-          </h3>
-          
-          <div className="text-center mb-6 p-4 bg-green-900/30 rounded-lg border border-green-600/50">
-            <p className="text-green-300 font-semibold">
-{`🚀 Round #${nextRoundNumber} starts in ${formatTime(nextRoundTimeUntilStart)} • Place your bets now!`}
-            </p>
+        <div className="glass-card border-2 border-green-500/50 bg-gradient-to-br from-green-900/20 to-blue-900/20" style={{ padding: '1.5rem' }}>
+          <div style={{ 
+            textAlign: 'center', 
+            marginBottom: '1rem',
+            padding: '0.75rem 1rem',
+            backgroundColor: 'rgba(34, 197, 94, 0.2)',
+            border: '1px solid rgba(74, 222, 128, 0.4)',
+            borderRadius: '0.5rem'
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              gap: '0.75rem',
+              marginBottom: '0.375rem'
+            }}>
+              <Timer style={{ width: '1.5rem', height: '1.5rem', color: '#4ade80' }} />
+              <span style={{ fontSize: '1.5rem', fontWeight: '900', color: '#ffffff' }}>
+                🎮 BET ON ROUND #{nextRoundNumber}
+              </span>
+              <Timer style={{ width: '1.5rem', height: '1.5rem', color: '#4ade80' }} />
+            </div>
+            <div style={{ fontSize: '0.875rem', color: '#4ade80', fontWeight: '700' }}>
+              Starts in {formatTime(nextRoundTimeUntilStart)}
+            </div>
           </div>
 
           <div className="max-w-2xl mx-auto space-y-4">
@@ -873,34 +939,6 @@ export const PlayTab: React.FC = () => {
         </div>
       )}
 
-      {/* Round Schedule Info */}
-      <div className="glass-card p-6 border border-indigo-500/50 bg-indigo-900/20">
-        <div className="text-center">
-          <Clock className="w-12 h-12 text-indigo-400 mx-auto mb-3" />
-          <h4 className="text-lg font-semibold text-indigo-300 mb-4">Round Schedule</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div className={`p-3 rounded-lg border ${noActiveRound 
-              ? 'bg-gray-900/30 border-gray-600/50' 
-              : 'bg-orange-900/30 border-orange-600/50'
-            }`}>
-              <div className={`font-semibold ${noActiveRound ? 'text-gray-300' : 'text-orange-300'}`}>
-                {`Round #${currentRoundNumber} (Current)`}
-              </div>
-              <div className={noActiveRound ? 'text-gray-200' : 'text-orange-200'}>
-                {noActiveRound ? 'Ended: Top of hour' : 'Ends: Top of next hour'}
-              </div>
-              <div className={noActiveRound ? 'text-gray-200' : 'text-orange-200'}>
-                Status: {noActiveRound ? '✅ Completed' : '🔴 Active & Running'}
-              </div>
-            </div>
-            <div className="bg-green-900/30 p-3 rounded-lg border border-green-600/50">
-              <div className="text-green-300 font-semibold">{`Round #${nextRoundNumber} (Next)`}</div>
-              <div className="text-green-200">Starts: Top of next hour</div>
-              <div className="text-green-200">Status: 🟢 Accepting Bets</div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

@@ -42,76 +42,115 @@ function App() {
                 </p>
               </div>
 
-          {/* WORKING TABS - BIG AND CLICKABLE */}
-          <div className="bg-gray-800/70 p-4 rounded-2xl border-2 border-gray-600 mb-12 shadow-2xl">
-            <div className="grid grid-cols-3 gap-4">
+          {/* Modern Tabs */}
+          <div style={{
+            backgroundColor: 'rgba(31, 41, 55, 0.6)',
+            border: '1px solid rgba(75, 85, 99, 0.5)',
+            borderRadius: '0.75rem',
+            padding: '0.5rem',
+            marginBottom: '2rem'
+          }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
               <button 
                 onClick={() => setActiveTab('play')}
                 style={{
-                  backgroundColor: activeTab === 'play' ? '#4a5568' : '#ffffff',
-                  color: activeTab === 'play' ? '#ffffff' : '#000000',
-                  border: '3px solid #000000',
-                  padding: '20px',
-                  fontSize: '18px',
-                  fontWeight: 'bold',
-                  borderRadius: '8px',
+                  backgroundColor: activeTab === 'play' ? 'rgba(99, 102, 241, 0.3)' : 'transparent',
+                  color: '#ffffff',
+                  border: activeTab === 'play' ? '2px solid #6366f1' : '2px solid transparent',
+                  padding: '1rem 1.5rem',
+                  fontSize: '1rem',
+                  fontWeight: '900',
+                  borderRadius: '0.5rem',
                   cursor: 'pointer',
-                  minHeight: '100px',
                   display: 'flex',
-                  flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '8px'
+                  gap: '0.5rem',
+                  transition: 'all 0.2s',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em'
+                }}
+                onMouseEnter={(e) => {
+                  if (activeTab !== 'play') {
+                    e.currentTarget.style.backgroundColor = 'rgba(55, 65, 81, 0.5)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (activeTab !== 'play') {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }
                 }}
               >
-                <span style={{ fontSize: '24px' }}>🎮</span>
-                <span>PLAY</span>
+                <span style={{ fontSize: '1.25rem' }}>🎮</span>
+                <span>Play</span>
               </button>
               
               <button 
                 onClick={() => setActiveTab('history')}
                 style={{
-                  backgroundColor: activeTab === 'history' ? '#4a5568' : '#ffffff',
-                  color: activeTab === 'history' ? '#ffffff' : '#000000',
-                  border: '3px solid #000000',
-                  padding: '20px',
-                  fontSize: '18px',
-                  fontWeight: 'bold',
-                  borderRadius: '8px',
+                  backgroundColor: activeTab === 'history' ? 'rgba(99, 102, 241, 0.3)' : 'transparent',
+                  color: '#ffffff',
+                  border: activeTab === 'history' ? '2px solid #6366f1' : '2px solid transparent',
+                  padding: '1rem 1.5rem',
+                  fontSize: '1rem',
+                  fontWeight: '900',
+                  borderRadius: '0.5rem',
                   cursor: 'pointer',
-                  minHeight: '100px',
                   display: 'flex',
-                  flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '8px'
+                  gap: '0.5rem',
+                  transition: 'all 0.2s',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em'
+                }}
+                onMouseEnter={(e) => {
+                  if (activeTab !== 'history') {
+                    e.currentTarget.style.backgroundColor = 'rgba(55, 65, 81, 0.5)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (activeTab !== 'history') {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }
                 }}
               >
-                <span style={{ fontSize: '24px' }}>📊</span>
-                <span>HISTORY</span>
+                <span style={{ fontSize: '1.25rem' }}>📊</span>
+                <span>History</span>
               </button>
               
               <button 
                 onClick={() => setActiveTab('stats')}
                 style={{
-                  backgroundColor: activeTab === 'stats' ? '#4a5568' : '#ffffff',
-                  color: activeTab === 'stats' ? '#ffffff' : '#000000',
-                  border: '3px solid #000000',
-                  padding: '20px',
-                  fontSize: '18px',
-                  fontWeight: 'bold',
-                  borderRadius: '8px',
+                  backgroundColor: activeTab === 'stats' ? 'rgba(99, 102, 241, 0.3)' : 'transparent',
+                  color: '#ffffff',
+                  border: activeTab === 'stats' ? '2px solid #6366f1' : '2px solid transparent',
+                  padding: '1rem 1.5rem',
+                  fontSize: '1rem',
+                  fontWeight: '900',
+                  borderRadius: '0.5rem',
                   cursor: 'pointer',
-                  minHeight: '100px',
                   display: 'flex',
-                  flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '8px'
+                  gap: '0.5rem',
+                  transition: 'all 0.2s',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em'
+                }}
+                onMouseEnter={(e) => {
+                  if (activeTab !== 'stats') {
+                    e.currentTarget.style.backgroundColor = 'rgba(55, 65, 81, 0.5)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (activeTab !== 'stats') {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }
                 }}
               >
-                <span style={{ fontSize: '24px' }}>📈</span>
-                <span>STATS</span>
+                <span style={{ fontSize: '1.25rem' }}>📈</span>
+                <span>Stats</span>
               </button>
             </div>
           </div>
