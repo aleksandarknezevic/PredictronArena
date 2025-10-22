@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useWeb3 } from '../contexts/Web3Context';
-import { Button } from './ui/Button';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -16,7 +15,7 @@ import { Side, MIN_BET_WEI, SEPOLIA_CHAIN_ID } from '../contracts/PredictronAren
 import type { Round } from '../contracts/PredictronArena';
 import { ethers } from 'ethers';
 import { apolloClient } from '../graphql/client';
-import { GET_USER_BETTING_HISTORY, GET_LATEST_ROUNDS } from '../graphql/queries';
+import { GET_LATEST_ROUNDS } from '../graphql/queries';
 import { gql } from '@apollo/client';
 
 export const PlayTab: React.FC = () => {
