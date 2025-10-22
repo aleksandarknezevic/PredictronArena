@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Gradient definitions -->
+  <defs>
+    <linearGradient id="brainGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8b5cf6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:1" />
+    </linearGradient>
+    <radialGradient id="bgGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#1f2937;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#111827;stop-opacity:1" />
+    </radialGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="32" cy="32" r="32" fill="url(#bgGrad)"/>
+  
+  <!-- Brain shape -->
+  <g transform="translate(32, 24)" fill="url(#brainGrad)">
+    <path d="M-10,-8 Q-12,-10 -10,-12 Q-5,-14 0,-13 Q5,-14 10,-12 Q12,-10 10,-8 Q10,-3 8,2 Q5,7 0,7 Q-5,7 -8,2 Q-10,-3 -10,-8 Z"/>
+  </g>
+  
+  <!-- Chart bars -->
+  <g transform="translate(32, 45)">
+    <rect x="-14" y="-8" width="4" height="8" fill="#10b981" rx="1"/>
+    <rect x="-6" y="-12" width="4" height="12" fill="#ef4444" rx="1"/>
+    <rect x="2" y="-6" width="4" height="6" fill="#10b981" rx="1"/>
+    <rect x="10" y="-10" width="4" height="10" fill="#10b981" rx="1"/>
+  </g>
+  
+  <!-- Up arrow -->
+  <g transform="translate(48, 32)">
+    <path d="M0,4 L0,-4 M-3,-1 L0,-4 L3,-1" stroke="#10b981" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.8"/>
+  </g>
+  
+  <!-- Down arrow -->
+  <g transform="translate(16, 32)">
+    <path d="M0,-4 L0,4 M-3,1 L0,4 L3,1" stroke="#ef4444" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.8"/>
+  </g>
+</svg>
+
