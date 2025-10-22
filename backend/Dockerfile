@@ -1,8 +1,6 @@
 FROM node:24.3.0-slim
 
-# --no-install-recommends keeps the image smaller by avoiding extra dependencies.
-# rm -rf /var/lib/apt/lists/* cleans up cached package lists to reduce image size.
-# psql is needed for dumping and restoring the initial effects cache.
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends postgresql-client && \
     rm -rf /var/lib/apt/lists/*
