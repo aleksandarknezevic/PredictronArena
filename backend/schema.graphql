@@ -71,4 +71,3 @@ type RoundParticipant {
   user: Bytes!
   processedResults: Boolean!
 }
-
