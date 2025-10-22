@@ -98,14 +98,11 @@ export const HistoryTab: React.FC = () => {
         const roundResult = round?.result ?? 0; // 0 = None, 1 = Up, 2 = Down
         const totalGrossReward = BigInt(userRound.grossReward);
         const hasBothSides = upAmount > 0n && downAmount > 0n;
-
-          // Determine overall profitability for hedged bets
-          const totalBetAmount = upAmount + downAmount;
-          const overallProfitable = hasBothSides ? (totalGrossReward > totalBetAmount) : (totalGrossReward > 0n);
           
           // If user bet on UP, create an UP entry
           if (upAmount > 0n) {
             const upShowClaim = hasBothSides ? (roundResult === 1 && totalGrossReward > 0n) : (totalGrossReward > 0n);
+            const upWon = roundResult === 1; // UP wins if price went up
             
             betHistoryData.push({
               roundId: userRound.roundId,
@@ -117,7 +114,7 @@ export const HistoryTab: React.FC = () => {
               reward: upShowClaim ? userRound.grossReward : '0',
               claimed: actualClaimed,
               canClaim: !actualClaimed && upShowClaim && round?.endTs !== undefined && round.endTs !== null,
-              won: overallProfitable, // Win/Loss based on overall profitability
+              won: upWon, // Win/Loss based on whether UP won
               netPnl: userRound.netPnl // Keep overall net P&L for reference
             });
           }
@@ -125,6 +122,7 @@ export const HistoryTab: React.FC = () => {
           // If user bet on DOWN, create a DOWN entry
           if (downAmount > 0n) {
             const downShowClaim = hasBothSides ? (roundResult === 2 && totalGrossReward > 0n) : (totalGrossReward > 0n);
+            const downWon = roundResult === 2; // DOWN wins if price went down
             
             betHistoryData.push({
               roundId: userRound.roundId,
@@ -136,7 +134,7 @@ export const HistoryTab: React.FC = () => {
               reward: downShowClaim ? userRound.grossReward : '0',
               claimed: actualClaimed,
               canClaim: !actualClaimed && downShowClaim && round?.endTs !== undefined && round.endTs !== null,
-              won: overallProfitable, // Win/Loss based on overall profitability
+              won: downWon, // Win/Loss based on whether DOWN won
               netPnl: userRound.netPnl // Keep overall net P&L for reference
             });
           }
