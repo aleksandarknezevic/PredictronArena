@@ -380,7 +380,6 @@ export const DashboardTab: React.FC = () => {
     }
   });
   const finishedRoundsCount = roundsMap.size;
-  const wonRoundsCount = Array.from(roundsMap.values()).filter(won => won).length;
 
   return (
     <div className="space-y-3">
