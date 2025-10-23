@@ -29,7 +29,8 @@ import {
   GET_ROUNDS_BY_IDS,
   GET_USER_STATS,
   GET_AI_STATS,
-  GET_LEADERBOARD
+  GET_LEADERBOARD,
+  GET_ALL_ROUNDS
 } from '../graphql/queries';
 import type { 
   GetUserBettingHistoryData, 
@@ -79,6 +80,9 @@ export const DashboardTab: React.FC = () => {
   const [aiStatsData, setAiStatsData] = useState<GetAiStatsData | null>(null);
   const [leaderboardData, setLeaderboardData] = useState<GetLeaderboardData | null>(null);
   
+  // Global round state
+  const [highestEndedRound, setHighestEndedRound] = useState<number>(0);
+  
   // Loading state
   const [loading, setLoading] = useState(true);
   
@@ -104,7 +108,7 @@ export const DashboardTab: React.FC = () => {
       setLoading(true);
       
       // Fetch all data in parallel
-      const [userRoundsResult, userStatsResult, aiStatsResult, leaderboardResult] = await Promise.all([
+      const [userRoundsResult, userStatsResult, aiStatsResult, leaderboardResult, allRoundsResult] = await Promise.all([
         // Bet history
         apolloClient.query<GetUserBettingHistoryData>({
           query: GET_USER_BETTING_HISTORY,
@@ -135,6 +139,12 @@ export const DashboardTab: React.FC = () => {
           query: GET_LEADERBOARD,
           variables: { chainId: SEPOLIA_CHAIN_ID, limit: 10 },
           fetchPolicy: 'network-only',
+        }),
+        // All ended rounds (to get highest ended round globally)
+        apolloClient.query({
+          query: GET_ALL_ROUNDS,
+          variables: { chainId: SEPOLIA_CHAIN_ID, limit: 1 },
+          fetchPolicy: 'network-only',
         })
       ]);
 
@@ -142,6 +152,12 @@ export const DashboardTab: React.FC = () => {
       setUserStatsData(userStatsResult.data || null);
       setAiStatsData(aiStatsResult.data || null);
       setLeaderboardData(leaderboardResult.data || null);
+
+      // Set highest ended round globally
+      if (allRoundsResult.data?.Round && allRoundsResult.data.Round.length > 0) {
+        const highestRound = parseInt(allRoundsResult.data.Round[0].roundId);
+        setHighestEndedRound(highestRound);
+      }
 
       // Process bet history
       if (!userRoundsResult.data?.UserRound) {
@@ -718,85 +734,16 @@ export const DashboardTab: React.FC = () => {
         </div>
       )}
 
-      {/* Leaderboard */}
-      {leaderboard && leaderboard.length > 0 && (
-        <div style={{
-          backgroundColor: colors.cardBg,
-          border: theme === 'dark' ? '1px solid rgba(234, 179, 8, 0.4)' : `1px solid ${colors.cardBorder}`,
-          borderRadius: '0.5rem',
-          padding: '1rem'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-            <Trophy style={{ width: '1.25rem', height: '1.25rem', color: '#f59e0b' }} />
-            <span style={{ fontSize: '1rem', fontWeight: '700', color: colors.text }}>LEADERBOARD</span>
-          </div>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {leaderboard.slice(0, 10).map((player, index) => (
-              <div 
-                key={player.user} 
-                style={{
-                  backgroundColor: theme === 'dark' ? 'rgba(17, 24, 39, 0.6)' : 'rgba(243, 244, 246, 0.6)',
-                  border: `1px solid ${colors.cardBorder}`,
-                  borderRadius: '0.375rem',
-                  padding: '0.625rem 0.875rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '0.75rem',
-                  transition: 'all 0.2s'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = theme === 'dark' ? 'rgba(31, 41, 55, 0.8)' : 'rgba(254, 252, 232, 0.8)';
-                  e.currentTarget.style.borderColor = theme === 'dark' ? 'rgba(234, 179, 8, 0.4)' : '#f59e0b';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = theme === 'dark' ? 'rgba(17, 24, 39, 0.6)' : 'rgba(243, 244, 246, 0.6)';
-                  e.currentTarget.style.borderColor = colors.cardBorder;
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
-                  <div style={{ width: '2rem', display: 'flex', justifyContent: 'center' }}>
-                    {getRankIcon(index)}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.875rem', fontWeight: '700', color: colors.text }}>
-                      {formatAddress(player.user)}
-                    </div>
-                    <div style={{ fontSize: '0.7rem', color: colors.textSecondary }}>
-                      {player.roundsPlayed} rounds
-                    </div>
-                  </div>
-                </div>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '0.7rem', color: colors.textSecondary, marginBottom: '0.125rem' }}>WIN RATE</div>
-                    <div style={{ fontSize: '1rem', fontWeight: '900', color: '#22c55e' }}>
-                      {(player.winRate * 100).toFixed(1)}%
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right', minWidth: '100px' }}>
-                    <div style={{ fontSize: '0.7rem', color: colors.textSecondary, marginBottom: '0.125rem' }}>NET P&L</div>
-                    <div style={{ 
-                      fontSize: '1rem', 
-                      fontWeight: '900',
-                      fontFamily: 'monospace',
-                      color: BigInt(player.totalNetPnl) >= 0n ? '#22c55e' : '#ef4444'
-                    }}>
-                      {BigInt(player.totalNetPnl) >= 0n ? '+' : ''}{formatEther(player.totalNetPnl)} ETH
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* BETTING HISTORY SECTION */}
-      
-      {betHistory.length > 0 ? (
+      {/* Two Column Layout: Recent Bets & Leaderboard */}
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: '1fr 400px',
+        gap: '1rem',
+        alignItems: 'start'
+      }}>
+        {/* Recent Bets Column */}
+        <div>
+          {betHistory.length > 0 ? (
         <>
           {/* Bet History List */}
           <div className="space-y-3">
@@ -807,11 +754,18 @@ export const DashboardTab: React.FC = () => {
               </div>
             </div>
             
-            {betHistory
-              .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-              .map((bet) => {
-              const betSide = getBetSide(bet.userBet);
-              const roundEnded = bet.round ? (bet.round.endTs !== null && bet.round.endTs !== undefined && bet.round.endTs !== "0") : false;
+            {(() => {
+              // Use the global highest ended round (not user-specific)
+              return betHistory
+                .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                .map((bet) => {
+                const betSide = getBetSide(bet.userBet);
+                const roundEnded = bet.round ? (bet.round.endTs !== null && bet.round.endTs !== undefined && bet.round.endTs !== "0") : false;
+                const currentRoundId = parseInt(bet.roundId.toString());
+                // Current active round is the one after the highest ended round
+                const isCurrentActiveRound = currentRoundId === highestEndedRound + 1;
+                // Future rounds are any rounds beyond the current active one
+                const isFutureRound = currentRoundId > highestEndedRound + 1;
               
               let betResult: 'won' | 'lost' | 'tie' | 'pending';
               
@@ -890,18 +844,18 @@ export const DashboardTab: React.FC = () => {
                   <div style={{ 
                     display: 'flex', 
                     alignItems: 'center', 
-                    gap: '1.5rem',
+                    gap: '1rem',
                     flex: 1,
                     fontSize: '0.875rem'
                   }}>
-                    <div style={{ minWidth: '90px' }}>
+                    <div style={{ width: '100px', flexShrink: 0 }}>
                       <div style={{ color: colors.textSecondary, fontSize: '0.75rem', marginBottom: '0.125rem' }}>BET</div>
                       <div style={{ color: colors.text, fontWeight: '700', fontFamily: 'monospace' }}>
                         {formatEther(totalBet)} ETH
                       </div>
                     </div>
 
-                    <div style={{ minWidth: '60px' }}>
+                    <div style={{ width: '70px', flexShrink: 0 }}>
                       <div style={{ color: colors.textSecondary, fontSize: '0.75rem', marginBottom: '0.125rem' }}>SIDE</div>
                       <div style={{ 
                         color: betSide === Side.Up ? '#22c55e' : '#ef4444',
@@ -912,40 +866,121 @@ export const DashboardTab: React.FC = () => {
                       </div>
                     </div>
 
-                    {bet.round && bet.round.endTs && BigInt(bet.round.endTs) > 0n && (
-                      <div style={{ minWidth: '160px' }}>
-                        <div style={{ color: colors.textSecondary, fontSize: '0.75rem', marginBottom: '0.125rem' }}>PRICE</div>
-                        <div style={{ 
-                          fontFamily: 'monospace',
-                          fontSize: '0.8125rem',
-                          fontWeight: '600',
-                          color: bet.round.endPrice && bet.round.startPrice && BigInt(bet.round.endPrice) > BigInt(bet.round.startPrice) ? '#22c55e' : 
-                                 bet.round.endPrice && bet.round.startPrice && BigInt(bet.round.endPrice) < BigInt(bet.round.startPrice) ? '#ef4444' : colors.textSecondary
-                        }}>
-                          {bet.round.startPrice && bet.round.endPrice ? (
-                            <>{formatPrice(BigInt(bet.round.startPrice))} → {formatPrice(BigInt(bet.round.endPrice))}</>
-                          ) : '—'}
+                    {bet.round && bet.round.endTs && BigInt(bet.round.endTs) > 0n ? (
+                      <>
+                        <div style={{ width: '180px', flexShrink: 0 }}>
+                          <div style={{ color: colors.textSecondary, fontSize: '0.75rem', marginBottom: '0.125rem' }}>PRICE</div>
+                          <div style={{ 
+                            fontFamily: 'monospace',
+                            fontSize: '0.8125rem',
+                            fontWeight: '600',
+                            color: bet.round.endPrice && bet.round.startPrice && BigInt(bet.round.endPrice) > BigInt(bet.round.startPrice) ? '#22c55e' : 
+                                   bet.round.endPrice && bet.round.startPrice && BigInt(bet.round.endPrice) < BigInt(bet.round.startPrice) ? '#ef4444' : colors.textSecondary
+                          }}>
+                            {bet.round.startPrice && bet.round.endPrice ? (
+                              <>{formatPrice(BigInt(bet.round.startPrice))} → {formatPrice(BigInt(bet.round.endPrice))}</>
+                            ) : '—'}
+                          </div>
+                        </div>
+
+                        <div style={{ width: '240px', flexShrink: 0 }}>
+                          <div style={{ color: colors.textSecondary, fontSize: '0.75rem', marginBottom: '0.125rem' }}>DURATION</div>
+                          <div style={{ fontSize: '0.7rem', fontWeight: '600', color: colors.text, lineHeight: '1.4' }}>
+                            {bet.round.startTs && bet.round.endTs ? (
+                              <>
+                                {(() => {
+                                  const startDate = new Date(Number(bet.round.startTs) * 1000);
+                                  const endDate = new Date(Number(bet.round.endTs) * 1000);
+                                  const startDateStr = startDate.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+                                  const endDateStr = endDate.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+                                  const sameDay = startDateStr === endDateStr;
+                                  
+                                  return (
+                                    <>
+                                      <div>{sameDay ? startDateStr : `${startDateStr} → ${endDateStr}`}</div>
+                                      <div>
+                                        {startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        {' → '}
+                                        {endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      </div>
+                                    </>
+                                  );
+                                })()}
+                              </>
+                            ) : '—'}
+                          </div>
+                        </div>
+
+                        <div style={{ width: '110px', flexShrink: 0 }}>
+                          <div style={{ color: colors.textSecondary, fontSize: '0.75rem', marginBottom: '0.125rem' }}>REWARD</div>
+                          <div style={{ 
+                            color: BigInt(bet.reward) > 0n ? '#f59e0b' : colors.textSecondary,
+                            fontWeight: '700',
+                            fontFamily: 'monospace',
+                            fontSize: '0.875rem'
+                          }}>
+                            {formatEther(BigInt(bet.reward))} ETH
+                          </div>
+                        </div>
+                      </>
+                    ) : bet.round && bet.round.endTs && BigInt(bet.round.endTs) === 0n && bet.round.startTs && BigInt(bet.round.startTs) > 0n ? (
+                      <div style={{ width: '530px', flexShrink: 0 }}>
+                        <div style={{ color: colors.textSecondary, fontSize: '0.75rem', marginBottom: '0.125rem' }}>STATUS</div>
+                        <div style={{ fontSize: '0.7rem', fontWeight: '600', color: '#f59e0b', lineHeight: '1.4' }}>
+                          <div>{new Date(Number(bet.round.startTs) * 1000).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                            <Clock style={{ width: '1rem', height: '1rem' }} />
+                            <span>Active since {new Date(Number(bet.round.startTs) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
                         </div>
                       </div>
-                    )}
-
-                    {bet.round && bet.round.endTs && BigInt(bet.round.endTs) === 0n && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: '#f59e0b' }}>
-                        <Clock style={{ width: '1rem', height: '1rem' }} />
-                        <span style={{ fontSize: '0.8125rem', fontWeight: '600' }}>In progress...</span>
-                      </div>
-                    )}
-
-                    {bet.round && bet.round.endTs && BigInt(bet.round.endTs) > 0n && (
-                      <div style={{ minWidth: '100px' }}>
-                        <div style={{ color: colors.textSecondary, fontSize: '0.75rem', marginBottom: '0.125rem' }}>REWARD</div>
-                        <div style={{ 
-                          color: BigInt(bet.reward) > 0n ? '#f59e0b' : colors.textSecondary,
-                          fontWeight: '700',
-                          fontFamily: 'monospace',
-                          fontSize: '0.875rem'
-                        }}>
-                          {formatEther(BigInt(bet.reward))} ETH
+                    ) : (
+                      <div style={{ width: '530px', flexShrink: 0 }}>
+                        <div style={{ color: colors.textSecondary, fontSize: '0.75rem', marginBottom: '0.125rem' }}>STATUS</div>
+                        <div style={{ fontSize: '0.7rem', fontWeight: '600', color: '#f59e0b', lineHeight: '1.4' }}>
+                          {(() => {
+                            const now = new Date();
+                            const currentHour = new Date(now);
+                            currentHour.setHours(now.getHours(), 0, 0, 0);
+                            
+                            if (isCurrentActiveRound) {
+                              // This is the current active round (startTs hasn't synced yet)
+                              return (
+                                <>
+                                  <div>{currentHour.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                                    <Clock style={{ width: '1rem', height: '1rem' }} />
+                                    <span>Active (syncing...)</span>
+                                  </div>
+                                </>
+                              );
+                            } else if (isFutureRound) {
+                              // This is a future round, waiting to start
+                              const roundsAhead = currentRoundId - highestEndedRound - 1;
+                              const futureHour = new Date(now);
+                              futureHour.setHours(now.getHours() + roundsAhead, 0, 0, 0);
+                              return (
+                                <>
+                                  <div>{futureHour.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                                    <Clock style={{ width: '1rem', height: '1rem' }} />
+                                    <span>Waiting for start...</span>
+                                  </div>
+                                </>
+                              );
+                            } else {
+                              // Fallback for edge cases
+                              return (
+                                <>
+                                  <div>{currentHour.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                                    <Clock style={{ width: '1rem', height: '1rem' }} />
+                                    <span>Pending (syncing...)</span>
+                                  </div>
+                                </>
+                              );
+                            }
+                          })()}
                         </div>
                       </div>
                     )}
@@ -1014,7 +1049,8 @@ export const DashboardTab: React.FC = () => {
                   </div>
                 </div>
               );
-            })}
+            });
+            })()}
             
             {/* Pagination Controls */}
             {betHistory.length > itemsPerPage && (
@@ -1094,6 +1130,91 @@ export const DashboardTab: React.FC = () => {
           <p style={{ color: colors.textSecondary }}>You haven't placed any bets yet. Go to the Play tab to get started!</p>
         </div>
       ) : null}
+        </div>
+
+        {/* Leaderboard Column */}
+        {leaderboard && leaderboard.length > 0 && (
+          <div style={{
+            backgroundColor: colors.cardBg,
+            border: theme === 'dark' ? '1px solid rgba(234, 179, 8, 0.4)' : `1px solid ${colors.cardBorder}`,
+            borderRadius: '0.5rem',
+            padding: '0.75rem',
+            height: 'fit-content',
+            maxHeight: '100%',
+            position: 'sticky',
+            top: '1rem',
+            overflow: 'auto'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+              <Trophy style={{ width: '1rem', height: '1rem', color: '#f59e0b' }} />
+              <span style={{ fontSize: '0.875rem', fontWeight: '700', color: colors.text }}>LEADERBOARD</span>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+              {leaderboard.slice(0, 10).map((player, index) => (
+                <div 
+                  key={player.user} 
+                  style={{
+                    backgroundColor: theme === 'dark' ? 'rgba(17, 24, 39, 0.6)' : 'rgba(243, 244, 246, 0.6)',
+                    border: `1px solid ${colors.cardBorder}`,
+                    borderRadius: '0.25rem',
+                    padding: '0.375rem 0.5rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.25rem',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = theme === 'dark' ? 'rgba(31, 41, 55, 0.8)' : 'rgba(254, 252, 232, 0.8)';
+                    e.currentTarget.style.borderColor = theme === 'dark' ? 'rgba(234, 179, 8, 0.4)' : '#f59e0b';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = theme === 'dark' ? 'rgba(17, 24, 39, 0.6)' : 'rgba(243, 244, 246, 0.6)';
+                    e.currentTarget.style.borderColor = colors.cardBorder;
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                    <div style={{ width: '1.25rem', display: 'flex', justifyContent: 'center', fontSize: '0.875rem' }}>
+                      {getRankIcon(index)}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: '700', color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {formatAddress(player.user)}
+                      </div>
+                      <div style={{ fontSize: '0.625rem', color: colors.textSecondary }}>
+                        {player.roundsPlayed} rounds
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingLeft: '1.625rem', gap: '0.5rem' }}>
+                    <div>
+                      <div style={{ fontSize: '0.625rem', color: colors.textSecondary }}>WIN</div>
+                      <div style={{ fontSize: '0.75rem', fontWeight: '700', color: '#22c55e' }}>
+                        {(player.winRate * 100).toFixed(1)}%
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right', minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: '0.625rem', color: colors.textSecondary }}>P&L</div>
+                      <div style={{ 
+                        fontSize: '0.7rem', 
+                        fontWeight: '700',
+                        fontFamily: 'monospace',
+                        color: BigInt(player.totalNetPnl) >= 0n ? '#22c55e' : '#ef4444',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {BigInt(player.totalNetPnl) >= 0n ? '+' : ''}{formatEther(player.totalNetPnl).substring(0, 8)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
