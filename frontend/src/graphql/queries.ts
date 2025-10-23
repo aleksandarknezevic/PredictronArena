@@ -189,6 +189,7 @@ export const GET_ALL_ROUNDS = gql`
       totalDown
       protocolFeeBps
       protocolFeePrecision
+      participants
     }
   }
 `;
@@ -208,6 +209,25 @@ export const GET_PROTOCOL_ANALYTICS = gql`
       totalDown
       result
       aiPrediction
+    }
+  }
+`;
+
+// Get recent bet activity across all users
+export const GET_RECENT_ACTIVITY = gql`
+  query GetRecentActivity($chainId: Int!, $limit: Int = 20) {
+    UserRound(
+      where: { chainId: { _eq: $chainId } }
+      order_by: { roundId: desc }
+      limit: $limit
+    ) {
+      id
+      user
+      roundId
+      upAmount
+      downAmount
+      totalBet
+      side
     }
   }
 `;
