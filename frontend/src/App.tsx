@@ -1,8 +1,7 @@
 import { Web3Provider } from './contexts/Web3Context';
 import { Header } from './components/Header';
 import { PlayTab } from './components/PlayTab';
-import { HistoryTab } from './components/HistoryTab';
-import { StatsTab } from './components/StatsTab';
+import { DashboardTab } from './components/DashboardTab';
 import { AnalyticsTab } from './components/AnalyticsTab';
 import { useState } from 'react';
 
@@ -13,10 +12,8 @@ function App() {
     switch (activeTab) {
       case 'play':
         return <PlayTab />;
-      case 'history':
-        return <HistoryTab />;
-      case 'stats':
-        return <StatsTab />;
+      case 'dashboard':
+        return <DashboardTab />;
       case 'analytics':
         return <AnalyticsTab />;
       default:
@@ -53,7 +50,7 @@ function App() {
             padding: '0.5rem',
             marginBottom: '2rem'
           }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
               <button 
                 onClick={() => setActiveTab('play')}
                 style={{
@@ -89,11 +86,11 @@ function App() {
               </button>
               
               <button 
-                onClick={() => setActiveTab('history')}
+                onClick={() => setActiveTab('dashboard')}
                 style={{
-                  backgroundColor: activeTab === 'history' ? 'rgba(99, 102, 241, 0.3)' : 'transparent',
+                  backgroundColor: activeTab === 'dashboard' ? 'rgba(99, 102, 241, 0.3)' : 'transparent',
                   color: '#ffffff',
-                  border: activeTab === 'history' ? '2px solid #6366f1' : '2px solid transparent',
+                  border: activeTab === 'dashboard' ? '2px solid #6366f1' : '2px solid transparent',
                   padding: '1rem 1.5rem',
                   fontSize: '1rem',
                   fontWeight: '900',
@@ -108,52 +105,18 @@ function App() {
                   letterSpacing: '0.05em'
                 }}
                 onMouseEnter={(e) => {
-                  if (activeTab !== 'history') {
+                  if (activeTab !== 'dashboard') {
                     e.currentTarget.style.backgroundColor = 'rgba(55, 65, 81, 0.5)';
                   }
                 }}
                 onMouseLeave={(e) => {
-                  if (activeTab !== 'history') {
+                  if (activeTab !== 'dashboard') {
                     e.currentTarget.style.backgroundColor = 'transparent';
                   }
                 }}
               >
                 <span style={{ fontSize: '1.25rem' }}>📊</span>
-                <span>History</span>
-              </button>
-              
-              <button 
-                onClick={() => setActiveTab('stats')}
-                style={{
-                  backgroundColor: activeTab === 'stats' ? 'rgba(99, 102, 241, 0.3)' : 'transparent',
-                  color: '#ffffff',
-                  border: activeTab === 'stats' ? '2px solid #6366f1' : '2px solid transparent',
-                  padding: '1rem 1.5rem',
-                  fontSize: '1rem',
-                  fontWeight: '900',
-                  borderRadius: '0.5rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.5rem',
-                  transition: 'all 0.2s',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em'
-                }}
-                onMouseEnter={(e) => {
-                  if (activeTab !== 'stats') {
-                    e.currentTarget.style.backgroundColor = 'rgba(55, 65, 81, 0.5)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (activeTab !== 'stats') {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }
-                }}
-              >
-                <span style={{ fontSize: '1.25rem' }}>📈</span>
-                <span>Stats</span>
+                <span>Dashboard</span>
               </button>
               
               <button 

@@ -17,6 +17,7 @@ import {
   YAxis, 
   CartesianGrid, 
   Tooltip, 
+  Legend,
   ResponsiveContainer 
 } from 'recharts';
 import { 
@@ -288,12 +289,15 @@ export const AnalyticsTab: React.FC = () => {
     return `${minutes}m ago`;
   };
 
-  // Custom label renderer for pie charts with proper visibility
-  const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }: any) => {
+  // Custom label renderer for pie charts - shows percentage and value
+  const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, value }: any) => {
     const RADIAN = Math.PI / 180;
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+    // Only show label if percentage is > 5% (to avoid cluttering small slices)
+    if (percent < 0.05) return null;
 
     return (
       <text 
@@ -310,8 +314,56 @@ export const AnalyticsTab: React.FC = () => {
           paintOrder: 'stroke fill'
         }}
       >
-        {`${name} ${(percent * 100).toFixed(0)}%`}
+        {`${(percent * 100).toFixed(1)}%`}
       </text>
+    );
+  };
+
+  // Custom label renderer for ETH amounts
+  const renderEthLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, value }: any) => {
+    const RADIAN = Math.PI / 180;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+    // Only show label if percentage is > 5%
+    if (percent < 0.05) return null;
+
+    return (
+      <g>
+        <text 
+          x={x} 
+          y={y - 8} 
+          fill={theme === 'dark' ? '#ffffff' : '#111827'}
+          textAnchor={x > cx ? 'start' : 'end'} 
+          dominantBaseline="central"
+          style={{ 
+            fontSize: '0.875rem', 
+            fontWeight: '700',
+            stroke: theme === 'dark' ? '#000000' : '#ffffff',
+            strokeWidth: '2px',
+            paintOrder: 'stroke fill'
+          }}
+        >
+          {`${(percent * 100).toFixed(1)}%`}
+        </text>
+        <text 
+          x={x} 
+          y={y + 8} 
+          fill={theme === 'dark' ? '#ffffff' : '#111827'}
+          textAnchor={x > cx ? 'start' : 'end'} 
+          dominantBaseline="central"
+          style={{ 
+            fontSize: '0.75rem', 
+            fontWeight: '600',
+            stroke: theme === 'dark' ? '#000000' : '#ffffff',
+            strokeWidth: '2px',
+            paintOrder: 'stroke fill'
+          }}
+        >
+          {`${value.toFixed(3)} ETH`}
+        </text>
+      </g>
     );
   };
 
@@ -686,15 +738,15 @@ export const AnalyticsTab: React.FC = () => {
             <PieChartIcon style={{ width: '1rem', height: '1rem', color: '#22c55e' }} />
             <span style={{ fontSize: '0.875rem', fontWeight: '700', color: colors.text }}>ROUND RESULTS</span>
           </div>
-          <ResponsiveContainer width="100%" height={200}>
+          <ResponsiveContainer width="100%" height={250}>
             <PieChart>
               <Pie
                 data={resultData}
                 cx="50%"
-                cy="50%"
+                cy="45%"
                 labelLine={false}
                 label={renderCustomLabel}
-                outerRadius={80}
+                outerRadius={70}
                 fill="#8884d8"
                 dataKey="value"
               >
@@ -709,6 +761,15 @@ export const AnalyticsTab: React.FC = () => {
                   borderRadius: '0.375rem',
                   color: colors.text
                 }}
+              />
+              <Legend 
+                verticalAlign="bottom" 
+                height={36}
+                wrapperStyle={{
+                  fontSize: '0.75rem',
+                  color: colors.text
+                }}
+                iconType="circle"
               />
             </PieChart>
           </ResponsiveContainer>
@@ -725,15 +786,15 @@ export const AnalyticsTab: React.FC = () => {
             <PieChartIcon style={{ width: '1rem', height: '1rem', color: '#8b5cf6' }} />
             <span style={{ fontSize: '0.875rem', fontWeight: '700', color: colors.text }}>BET DISTRIBUTION</span>
           </div>
-          <ResponsiveContainer width="100%" height={200}>
+          <ResponsiveContainer width="100%" height={250}>
             <PieChart>
               <Pie
                 data={poolData}
                 cx="50%"
-                cy="50%"
+                cy="45%"
                 labelLine={false}
-                label={renderCustomLabel}
-                outerRadius={80}
+                label={renderEthLabel}
+                outerRadius={70}
                 fill="#8884d8"
                 dataKey="value"
               >
@@ -749,6 +810,15 @@ export const AnalyticsTab: React.FC = () => {
                   color: colors.text
                 }}
                 formatter={(value: any) => [`${value.toFixed(3)} ETH`, '']}
+              />
+              <Legend 
+                verticalAlign="bottom" 
+                height={36}
+                wrapperStyle={{
+                  fontSize: '0.75rem',
+                  color: colors.text
+                }}
+                iconType="circle"
               />
             </PieChart>
           </ResponsiveContainer>
