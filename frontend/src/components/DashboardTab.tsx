@@ -91,8 +91,7 @@ export const DashboardTab: React.FC = () => {
     setCurrentPage(1);
   }, [betHistory.length]);
 
-  // Generate user ID for GraphQL queries
-  const userId = account ? `${SEPOLIA_CHAIN_ID}_${account.toLowerCase()}` : '';
+  // Generate AI stats ID for GraphQL queries
   const aiStatsId = SEPOLIA_CHAIN_ID.toString();
 
   const fetchAllData = async () => {
@@ -382,7 +381,6 @@ export const DashboardTab: React.FC = () => {
   });
   const finishedRoundsCount = roundsMap.size;
   const wonRoundsCount = Array.from(roundsMap.values()).filter(won => won).length;
-  const winRateFromHistory = finishedRoundsCount > 0 ? Math.round((wonRoundsCount / finishedRoundsCount) * 100) : 0;
 
   return (
     <div className="space-y-3">

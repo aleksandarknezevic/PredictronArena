@@ -289,8 +289,8 @@ export const AnalyticsTab: React.FC = () => {
     return `${minutes}m ago`;
   };
 
-  // Custom label renderer for pie charts - shows percentage and value
-  const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, value }: any) => {
+  // Custom label renderer for pie charts - shows percentage
+  const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
     const RADIAN = Math.PI / 180;
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
