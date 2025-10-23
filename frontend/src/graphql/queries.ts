@@ -167,3 +167,47 @@ export const GET_ROUNDS_BY_IDS = gql`
     }
   }
 `;
+
+// Get all rounds for analytics (limited to recent rounds)
+export const GET_ALL_ROUNDS = gql`
+  query GetAllRounds($chainId: Int!, $limit: Int = 100) {
+    Round(
+      where: { chainId: { _eq: $chainId }, endTs: { _gt: "0" } }
+      order_by: { roundId: desc }
+      limit: $limit
+    ) {
+      id
+      chainId
+      roundId
+      startTs
+      endTs
+      startPrice
+      endPrice
+      aiPrediction
+      result
+      totalUp
+      totalDown
+      protocolFeeBps
+      protocolFeePrecision
+    }
+  }
+`;
+
+// Get protocol analytics
+export const GET_PROTOCOL_ANALYTICS = gql`
+  query GetProtocolAnalytics($chainId: Int!) {
+    Round(
+      where: { chainId: { _eq: $chainId } }
+      order_by: { roundId: asc }
+    ) {
+      id
+      roundId
+      startTs
+      endTs
+      totalUp
+      totalDown
+      result
+      aiPrediction
+    }
+  }
+`;
