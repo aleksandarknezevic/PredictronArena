@@ -68,6 +68,8 @@ export const AnalyticsTab: React.FC = () => {
   const [poolData, setPoolData] = useState<any[]>([]);
   const [poolSizeTrends, setPoolSizeTrends] = useState<any[]>([]);
   const [participationTrends, setParticipationTrends] = useState<any[]>([]);
+  const [ethPriceTrends, setEthPriceTrends] = useState<any[]>([]);
+  const [betSideTrends, setBetSideTrends] = useState<any[]>([]);
   const [aiAccuracyData, setAiAccuracyData] = useState<any>(null);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [queryTime, setQueryTime] = useState<number>(0);
@@ -133,6 +135,8 @@ export const AnalyticsTab: React.FC = () => {
       const volumeChartData: any[] = [];
       const poolSizeTrendsData: any[] = [];
       const participationTrendsData: any[] = [];
+      const ethPriceTrendsData: any[] = [];
+      const betSideTrendsData: any[] = [];
       const batchSize = 5; // Group every 5 rounds
       
       for (let i = 0; i < rounds.length; i += batchSize) {
@@ -180,6 +184,50 @@ export const AnalyticsTab: React.FC = () => {
           players: uniqueParticipants.size,
           round: avgRound,
         });
+
+        // ETH Price Trends (use end price as the actual price at that time)
+        const pricesWithData = batch.filter((r: any) => r.endPrice && BigInt(r.endPrice) > 0n);
+        if (pricesWithData.length > 0) {
+          const avgEndPrice = pricesWithData.reduce((sum: bigint, r: any) => sum + BigInt(r.endPrice), 0n) / BigInt(pricesWithData.length);
+          
+          // Use the middle round's timestamp
+          const middleRound = batch[Math.floor(batch.length / 2)];
+          const timestamp = middleRound.endTs ? Number(middleRound.endTs) : middleRound.startTs ? Number(middleRound.startTs) : Date.now() / 1000;
+          const date = new Date(timestamp * 1000);
+          const dateStr = `${date.getMonth()+1}/${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+          
+          ethPriceTrendsData.push({
+            time: dateStr,
+            price: parseFloat((Number(avgEndPrice) / 1e8).toFixed(2)),
+            timestamp: timestamp,
+          });
+        }
+
+        // Bet Side Trends (count UP vs DOWN from round totals)
+        let batchUpTotal = 0n;
+        let batchDownTotal = 0n;
+        batch.forEach((r: any) => {
+          batchUpTotal += BigInt(r.totalUp || 0);
+          batchDownTotal += BigInt(r.totalDown || 0);
+        });
+        
+        // Convert to bet counts (approximate by dividing by average bet size of 0.05 ETH)
+        const avgBetSizeWei = BigInt('50000000000000000'); // 0.05 ETH
+        const upBetsCount = batchUpTotal > 0n ? Number(batchUpTotal / avgBetSizeWei) : 0;
+        const downBetsCount = batchDownTotal > 0n ? Number(batchDownTotal / avgBetSizeWei) : 0;
+        
+        // Use the middle round's timestamp
+        const middleRound = batch[Math.floor(batch.length / 2)];
+        const timestamp = middleRound.startTs ? Number(middleRound.startTs) : middleRound.endTs ? Number(middleRound.endTs) : Date.now() / 1000;
+        const date = new Date(timestamp * 1000);
+        const dateStr = `${date.getMonth()+1}/${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+        
+        betSideTrendsData.push({
+          time: dateStr,
+          upBets: upBetsCount,
+          downBets: downBetsCount,
+          timestamp: timestamp,
+        });
       }
 
       // Process rounds for analytics
@@ -216,6 +264,8 @@ export const AnalyticsTab: React.FC = () => {
       setVolumeData(volumeChartData.reverse());
       setPoolSizeTrends(poolSizeTrendsData.reverse());
       setParticipationTrends(participationTrendsData.reverse());
+      setEthPriceTrends(ethPriceTrendsData.reverse());
+      setBetSideTrends(betSideTrendsData.reverse());
       
       setResultData([
         { name: 'UP Won', value: winCount, color: '#22c55e' },
@@ -720,8 +770,8 @@ export const AnalyticsTab: React.FC = () => {
                 dataKey="poolSize" 
                 stroke="#10b981" 
                 strokeWidth={3}
-                dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }}
-                activeDot={{ r: 6 }}
+                dot={false}
+                activeDot={false}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -915,10 +965,128 @@ export const AnalyticsTab: React.FC = () => {
                 dataKey="players" 
                 stroke="#06b6d4" 
                 strokeWidth={3}
-                dot={{ fill: '#06b6d4', strokeWidth: 2, r: 4 }}
-                activeDot={{ r: 6 }}
+                dot={false}
+                activeDot={false}
               />
             </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* ETH Price Trends */}
+        <div style={{
+          backgroundColor: colors.cardBg,
+          border: `1px solid ${colors.cardBorder}`,
+          borderRadius: '0.5rem',
+          padding: '1rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+            <TrendingUp style={{ width: '1rem', height: '1rem', color: '#f59e0b' }} />
+            <span style={{ fontSize: '0.875rem', fontWeight: '700', color: colors.text }}>ETH PRICE HISTORY</span>
+            <span style={{ 
+              fontSize: '0.65rem', 
+              padding: '0.125rem 0.375rem', 
+              borderRadius: '0.25rem', 
+              backgroundColor: theme === 'dark' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(245, 158, 11, 0.1)',
+              color: '#f59e0b',
+              fontWeight: '600'
+            }}>
+              USD
+            </span>
+          </div>
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={ethPriceTrends}>
+              <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#374151' : '#d1d5db'} />
+              <XAxis 
+                dataKey="time" 
+                stroke={colors.textSecondary}
+                style={{ fontSize: '0.65rem' }}
+                angle={-45}
+                textAnchor="end"
+                height={60}
+              />
+              <YAxis 
+                stroke={colors.textSecondary}
+                style={{ fontSize: '0.75rem' }}
+              />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: colors.cardBg, 
+                  border: `1px solid ${colors.cardBorder}`,
+                  borderRadius: '0.375rem',
+                  color: colors.text
+                }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="price" 
+                name="ETH Price"
+                stroke="#f59e0b" 
+                strokeWidth={3}
+                dot={false}
+                activeDot={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Bet Side Trends (UP vs DOWN) */}
+        <div style={{
+          backgroundColor: colors.cardBg,
+          border: `1px solid ${colors.cardBorder}`,
+          borderRadius: '0.5rem',
+          padding: '1rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+            <BarChart3 style={{ width: '1rem', height: '1rem', color: '#8b5cf6' }} />
+            <span style={{ fontSize: '0.875rem', fontWeight: '700', color: colors.text }}>BET SIDE TRENDS</span>
+            <span style={{ 
+              fontSize: '0.65rem', 
+              padding: '0.125rem 0.375rem', 
+              borderRadius: '0.25rem', 
+              backgroundColor: theme === 'dark' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.1)',
+              color: '#8b5cf6',
+              fontWeight: '600'
+            }}>
+              UP VS DOWN
+            </span>
+          </div>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={betSideTrends}>
+              <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#374151' : '#d1d5db'} />
+              <XAxis 
+                dataKey="time" 
+                stroke={colors.textSecondary}
+                style={{ fontSize: '0.65rem' }}
+                angle={-45}
+                textAnchor="end"
+                height={60}
+              />
+              <YAxis 
+                stroke={colors.textSecondary}
+                style={{ fontSize: '0.75rem' }}
+                allowDecimals={false}
+              />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: colors.cardBg, 
+                  border: `1px solid ${colors.cardBorder}`,
+                  borderRadius: '0.375rem',
+                  color: colors.text
+                }}
+                formatter={(value: any) => [`${value} bets`]}
+              />
+              <Legend 
+                verticalAlign="bottom" 
+                height={36}
+                wrapperStyle={{ 
+                  fontSize: '0.75rem',
+                  color: colors.text
+                }}
+                iconType="circle"
+              />
+              <Bar dataKey="upBets" name="UP Bets" fill="#22c55e" />
+              <Bar dataKey="downBets" name="DOWN Bets" fill="#ef4444" />
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
