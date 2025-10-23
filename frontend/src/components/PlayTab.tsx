@@ -72,7 +72,6 @@ export const PlayTab: React.FC = () => {
       if (rounds.length > 0) {
         const latestRoundNumber = Math.max(...rounds.map((r: any) => parseInt(r.roundId)));
         setLatestRoundFromBackend(latestRoundNumber);
-        console.log('Latest rounds from backend:', rounds.map((r: any) => `Round ${r.roundId} (endTs: ${r.endTs})`));
       }
     } catch (error) {
       console.error('Failed to fetch backend round data:', error);
@@ -103,9 +102,8 @@ export const PlayTab: React.FC = () => {
       try {
         // Method 1: Try the rounds mapping
         nextRoundData = await contract.rounds(nextId, { blockTag: 'latest' });
-        console.log('Round mapping data for round', nextId.toString(), ':', nextRoundData);
       } catch (error) {
-        console.log('Round mapping failed:', error);
+        // Rounds mapping not available yet
       }
 
       try {
@@ -120,21 +118,14 @@ export const PlayTab: React.FC = () => {
             totalUp,
             totalDown
           };
-          console.log('Direct pool data for round', nextId.toString(), ':', {
-            totalUp: totalUp.toString(),
-            totalDown: totalDown.toString(),
-            totalUpFormatted: formatEther(totalUp),
-            totalDownFormatted: formatEther(totalDown)
-          });
         }
       } catch (error) {
-        console.log('Direct pool methods not available:', error);
+        // Direct pool methods not available
       }
 
       // Method 3: Fallback to backend GraphQL data if contract methods fail
       if (!nextRoundData && !nextRoundPoolData) {
         try {
-          console.log('Attempting to fetch round data from backend as fallback...');
           const backendResult = await apolloClient.query({
             query: gql`
               query GetRound($roundId: numeric!) {
@@ -155,55 +146,62 @@ export const PlayTab: React.FC = () => {
               totalUp: BigInt(backendRound.totalUp || 0),
               totalDown: BigInt(backendRound.totalDown || 0)
             };
-            console.log('Backend fallback data for round', nextId.toString(), ':', {
-              totalUp: backendRound.totalUp,
-              totalDown: backendRound.totalDown,
-              totalUpFormatted: formatEther(BigInt(backendRound.totalUp || 0)),
-              totalDownFormatted: formatEther(BigInt(backendRound.totalDown || 0))
-            });
-          } else {
-            console.log('No backend data found for round', nextId.toString());
           }
         } catch (error) {
-          console.log('Backend fallback failed:', error);
+          // Backend fallback failed
         }
       }
 
-      console.log('🔍 CONTRACT DATA ANALYSIS:', {
-        currentRoundData: {
-          id: currentRoundData[0].toString(),
-          startTs: currentRoundData[1].toString(),
-          endTs: currentRoundData[2].toString(),
-          startPrice: currentRoundData[3].toString(),
-          endPrice: currentRoundData[4].toString(),
-          totalUp: currentRoundData[5].toString(),
-          totalDown: currentRoundData[6].toString(),
-          hasStarted: currentRoundData[1] > 0n,
-          hasEnded: currentRoundData[2] > 0n,
-          isActive: currentRoundData[1] > 0n && currentRoundData[2] === 0n
-        },
-        nextId: nextId.toString(),
-        currentTime: Math.floor(Date.now() / 1000),
-        latestFromBackend: latestRoundFromBackend,
-        interpretation: {
-          contractSaysCurrentRound: currentRoundData[0].toString(),
-          contractSaysNextRound: nextId.toString(),
-          shouldCurrentRoundBeActive: currentRoundData[1] > 0n && currentRoundData[2] === 0n,
-          backendCurrentRound: currentRoundNumber,
-          backendNextRound: nextRoundNumber,
-          backendHasActiveRound: hasActiveRound,
-          whoIsWrong: hasActiveRound ? 'Active round found from backend' : 'No active round from backend'
-        }
-      });
+      // IMPORTANT: Use backend to determine the ACTUAL current round (contract may be delayed)
+      // The backend knows which round has bets, contract currentRoundId may be stale
+      const actualCurrentRoundFromBackend = latestRoundFromBackend || Number(currentRoundData[0]);
+      
+      // Fetch pool data for the ACTUAL current round from backend (most reliable for active rounds)
+      let currentRoundPoolData = null;
+      try {
+        const backendResult = await apolloClient.query({
+          query: gql`
+            query GetRound($roundId: numeric!) {
+              Round(where: {roundId: {_eq: $roundId}}) {
+                roundId
+                totalUp
+                totalDown
+              }
+            }
+          `,
+          variables: { roundId: actualCurrentRoundFromBackend },
+          fetchPolicy: 'network-only'
+        });
 
+        if (backendResult.data.Round && backendResult.data.Round.length > 0) {
+          const backendRound = backendResult.data.Round[0];
+          currentRoundPoolData = {
+            totalUp: BigInt(backendRound.totalUp || 0),
+            totalDown: BigInt(backendRound.totalDown || 0)
+          };
+        }
+      } catch (error) {
+        // Backend fetch failed
+      }
+
+
+      // Set current round - prioritize contract data, then pool data, then backend
+      // Contract rounds mapping data (might be zero for active rounds)
+      const contractTotalUp = currentRoundData[5];
+      const contractTotalDown = currentRoundData[6];
+      
+      // Use contract data if non-zero, otherwise use fetched pool data, otherwise use zeros
+      const finalTotalUp = (contractTotalUp > 0n) ? contractTotalUp : (currentRoundPoolData?.totalUp || 0n);
+      const finalTotalDown = (contractTotalDown > 0n) ? contractTotalDown : (currentRoundPoolData?.totalDown || 0n);
+      
       setCurrentRound({
         id: currentRoundData[0],
         startTs: currentRoundData[1],
         endTs: currentRoundData[2],
         startPrice: currentRoundData[3],
         endPrice: currentRoundData[4],
-        totalUp: currentRoundData[5],
-        totalDown: currentRoundData[6],
+        totalUp: finalTotalUp,
+        totalDown: finalTotalDown,
         winningSide: currentRoundData[7]
       });
       
@@ -221,16 +219,7 @@ export const PlayTab: React.FC = () => {
         };
         
         setNextRound(roundData);
-        console.log('Set nextRound state from', nextRoundData ? 'rounds mapping' : 'direct pool data', ':', {
-          roundId: roundData.id.toString(),
-          totalUp: roundData.totalUp.toString(),
-          totalDown: roundData.totalDown.toString(),
-          totalUpFormatted: formatEther(roundData.totalUp),
-          totalDownFormatted: formatEther(roundData.totalDown),
-          dataSource: nextRoundData ? 'contract rounds(nextId)' : 'backend GraphQL query'
-        });
       } else {
-        console.log('No round data available, setting null');
         setNextRound(null);
       }
       
@@ -337,39 +326,37 @@ export const PlayTab: React.FC = () => {
 
   const { currentRoundNumber, nextRoundNumber, hasActiveRound } = determineRoundNumbers();
   
-  // Debug: Log next round pool display logic
-  console.log('🎯 NEXT ROUND POOL DISPLAY CHECK:', {
-    nextRoundExists: !!nextRound,
-    nextRoundId: nextRound?.id.toString(),
-    nextRoundNumber: nextRoundNumber,
-    idsMatch: nextRound ? Number(nextRound.id) === nextRoundNumber : false,
-    totalUp: nextRound?.totalUp.toString(),
-    totalDown: nextRound?.totalDown.toString(),
-    hasPoolData: nextRound ? (nextRound.totalUp > 0n || nextRound.totalDown > 0n) : false,
-    willShowPool: nextRound && Number(nextRound.id) === nextRoundNumber && (nextRound.totalUp > 0n || nextRound.totalDown > 0n)
-  });
-  
-  // Calculate round status for use in useEffect - USING BACKEND DATA
-  const currentTime = Math.floor(Date.now() / 1000);
-  
   // Use backend data to determine round status (same as HistoryTab)
-  const roundHasStarted = hasActiveRound || latestRoundsFromBackend.length > 0;
-  const roundHasEnded = !hasActiveRound && latestRoundsFromBackend.length > 0;
   const noActiveRoundStatus = !hasActiveRound; // Based on backend data
 
   // Auto-refresh data - less frequently to avoid scroll disruption
   useEffect(() => {
     if (!contract || chainId !== SEPOLIA_CHAIN_ID) return;
 
-    // Refresh every 15 seconds when no active round, 30 seconds when active (less intrusive)
-    const refreshInterval = noActiveRoundStatus ? 15000 : 30000;
+    // Refresh every 10 seconds to keep data fresh
+    const refreshInterval = 10000;
     const interval = setInterval(() => {
-      console.log(`Auto-refreshing round data... (${noActiveRoundStatus ? 'No active round - checking for new rounds' : 'Active round - updating data'})`);
       fetchLatestRoundsFromBackend();
-      fetchRoundData(true); // Preserve scroll position during auto-refresh
+      fetchRoundData(true); // Preserve scroll position during auto-refresh (includes price update)
     }, refreshInterval);
     return () => clearInterval(interval);
   }, [contract, chainId, account, currentRound, noActiveRoundStatus]);
+
+  // Dedicated price refresh - more frequent to show real-time price
+  useEffect(() => {
+    if (!contract || chainId !== SEPOLIA_CHAIN_ID) return;
+
+    const priceInterval = setInterval(async () => {
+      try {
+        const price = await contract.getLatestPrice({ blockTag: 'latest' });
+        setCurrentPrice(price);
+      } catch (error) {
+        console.error('Failed to fetch price:', error);
+      }
+    }, 5000); // Update price every 5 seconds
+
+    return () => clearInterval(priceInterval);
+  }, [contract, chainId]);
 
   const placeBet = async () => {
     if (!contract || !selectedSide || !account) return;
@@ -383,18 +370,14 @@ export const PlayTab: React.FC = () => {
     setIsPlacingBet(true);
     try {
       // Place bet on next round determined from backend data
-      console.log(`Placing bet on Round ${nextRoundNumber} (backend data, contract nextRoundId: ${nextRoundId})`);
       const tx = await contract.placeBet(selectedSide, { value: betAmountWei });
       await tx.wait();
       
       // Refresh data after successful bet
-      console.log('Bet successful, refreshing data...');
-      
       // Wait a moment for the blockchain state to update
       setTimeout(async () => {
         await fetchRoundData();
         await fetchLatestRoundsFromBackend();
-        console.log('Data refreshed after bet');
       }, 1000);
       
       setSelectedSide(null);
@@ -452,55 +435,9 @@ export const PlayTab: React.FC = () => {
     );
   }
 
-  // Use CONTRACT data as primary source for current round (most accurate for active rounds)
-  // Backend user history is only supplementary and may be stale
-  const backendCurrentRound = currentRoundNumber;
-  const backendNextRound = nextRoundNumber;
-  
-  const contractCurrentRound = currentRound ? Number(currentRound.id) : 0;
-  const contractNextRound = Number(nextRoundId);
-  
-  const canBetOnNextRound = true; // Can always bet on next round
-  const isCurrentRoundActive = currentRound && currentRound.startTs > 0n && currentRound.endTs === 0n;
-  
   // Use the backend-calculated round status
   const noActiveRound = !hasActiveRound;
-
-  // Debug logging to understand contract vs backend state
-  console.log('🚨 SYNC ISSUE DEBUG - PlayTab Round State:', {
-    backend: { 
-      current: backendCurrentRound, 
-      next: backendNextRound,
-      source: 'latestRoundFromBackend from user betting history'
-    },
-    contract: { 
-      current: contractCurrentRound, 
-      next: contractNextRound,
-      source: 'live contract state'
-    },
-    final: { current: currentRoundNumber, next: nextRoundNumber },
-    contractRound: currentRound ? {
-      id: currentRound.id.toString(),
-      startTs: currentRound.startTs.toString(),
-      endTs: currentRound.endTs.toString(),
-      totalUp: currentRound.totalUp.toString(),
-      totalDown: currentRound.totalDown.toString(),
-      isActive: currentRound.startTs > 0n && currentRound.endTs === 0n,
-      isEnded: currentRound.endTs > 0n
-    } : null,
-    isCurrentRoundActive,
-    noActiveRound,
-    roundStatus: {
-      currentTime,
-      hasStarted: roundHasStarted,
-      hasEnded: roundHasEnded,
-      shouldShowAsActive: roundHasStarted && !roundHasEnded,
-      shouldShowAsEnded: roundHasEnded
-    },
-    possibleIssue: contractCurrentRound !== backendCurrentRound ? 'BACKEND/CONTRACT MISMATCH! (using contract data)' : 'sync OK',
-    prioritySource: 'CONTRACT (authoritative for active rounds)',
-    timestamp: new Date().toLocaleTimeString()
-  });
+  const canBetOnNextRound = true; // Can always bet on next round
 
   return (
     <div className="space-y-3">
@@ -606,8 +543,8 @@ export const PlayTab: React.FC = () => {
               </div>
             )}
             
-            {/* Pool info for current round */}
-            {currentRound && Number(currentRound.id) === currentRoundNumber && (currentRound.totalUp > 0n || currentRound.totalDown > 0n) && (
+            {/* Pool info for current round - Show if there are any bets */}
+            {currentRound && (currentRound.totalUp > 0n || currentRound.totalDown > 0n) && (
               <div style={{ 
                 borderTop: `1px solid ${colors.cardBorder}`,
                 paddingTop: '0.5rem',

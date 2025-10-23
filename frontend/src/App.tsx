@@ -3,6 +3,7 @@ import { Header } from './components/Header';
 import { PlayTab } from './components/PlayTab';
 import { HistoryTab } from './components/HistoryTab';
 import { StatsTab } from './components/StatsTab';
+import { AnalyticsTab } from './components/AnalyticsTab';
 import { useState } from 'react';
 
 function App() {
@@ -16,6 +17,8 @@ function App() {
         return <HistoryTab />;
       case 'stats':
         return <StatsTab />;
+      case 'analytics':
+        return <AnalyticsTab />;
       default:
         return <PlayTab />;
     }
@@ -50,7 +53,7 @@ function App() {
             padding: '0.5rem',
             marginBottom: '2rem'
           }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
               <button 
                 onClick={() => setActiveTab('play')}
                 style={{
@@ -151,6 +154,40 @@ function App() {
               >
                 <span style={{ fontSize: '1.25rem' }}>📈</span>
                 <span>Stats</span>
+              </button>
+              
+              <button 
+                onClick={() => setActiveTab('analytics')}
+                style={{
+                  backgroundColor: activeTab === 'analytics' ? 'rgba(99, 102, 241, 0.3)' : 'transparent',
+                  color: '#ffffff',
+                  border: activeTab === 'analytics' ? '2px solid #6366f1' : '2px solid transparent',
+                  padding: '1rem 1.5rem',
+                  fontSize: '1rem',
+                  fontWeight: '900',
+                  borderRadius: '0.5rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  transition: 'all 0.2s',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em'
+                }}
+                onMouseEnter={(e) => {
+                  if (activeTab !== 'analytics') {
+                    e.currentTarget.style.backgroundColor = 'rgba(55, 65, 81, 0.5)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (activeTab !== 'analytics') {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }
+                }}
+              >
+                <span style={{ fontSize: '1.25rem' }}>📉</span>
+                <span>Analytics</span>
               </button>
             </div>
           </div>
