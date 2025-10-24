@@ -172,7 +172,10 @@ export const GET_ROUNDS_BY_IDS = gql`
 export const GET_ALL_ROUNDS = gql`
   query GetAllRounds($chainId: Int!, $limit: Int = 100) {
     Round(
-      where: { chainId: { _eq: $chainId }, endTs: { _gt: "0" } }
+      where: { 
+        chainId: { _eq: $chainId }
+        roundId: { _gte: "1" }
+      }
       order_by: { roundId: desc }
       limit: $limit
     ) {

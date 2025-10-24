@@ -92,7 +92,7 @@ export const AnalyticsTab: React.FC = () => {
       const [roundsResult, aiStatsResult, leaderboardResult, activityResult] = await Promise.all([
         apolloClient.query({
           query: GET_ALL_ROUNDS,
-          variables: { chainId: SEPOLIA_CHAIN_ID, limit: 100 },
+          variables: { chainId: SEPOLIA_CHAIN_ID, limit: 200 },
           fetchPolicy: 'network-only',
         }),
         apolloClient.query({
@@ -116,12 +116,48 @@ export const AnalyticsTab: React.FC = () => {
       setQueryTime(Math.round(endTime - startTime));
       setLastUpdated(new Date());
 
-      const rounds = roundsResult.data?.Round || [];
+      const rawRounds = roundsResult.data?.Round || [];
       const aiStats = aiStatsResult.data?.AiStats?.[0] || null;
       const activeUsers = leaderboardResult.data?.LeaderboardRow?.length || 0;
       const activity = activityResult.data?.UserRound || [];
       
       setRecentActivity(activity);
+
+      // Fill in missing rounds with zero values to ensure continuous data
+      let rounds: any[] = [];
+      if (rawRounds.length > 0) {
+        const roundIds = rawRounds.map((r: any) => parseInt(r.roundId)).sort((a: number, b: number) => a - b);
+        const maxRoundId = Math.max(...roundIds);
+        const minRoundId = Math.min(...roundIds);
+        
+
+        // Create a map of existing rounds
+        const roundMap = new Map();
+        rawRounds.forEach((r: any) => roundMap.set(parseInt(r.roundId), r));
+        
+        // Fill in all rounds from min to max IN ASCENDING ORDER
+        for (let id = minRoundId; id <= maxRoundId; id++) {
+          if (roundMap.has(id)) {
+            rounds.push(roundMap.get(id));
+          } else {
+            // Create dummy round with zero values
+            rounds.push({
+              id: `${id}`,
+              chainId: SEPOLIA_CHAIN_ID,
+              roundId: `${id}`,
+              startTs: null,
+              endTs: null,
+              startPrice: "0",
+              endPrice: "0",
+              totalUp: "0",
+              totalDown: "0",
+              result: 0,
+              participants: "",
+            });
+          }
+        }
+        // rounds are now [1,2,3...75] - will be batched as [1-5], [6-10], etc.
+      }
 
       // Calculate analytics
       let totalVolume = 0n;
@@ -141,10 +177,17 @@ export const AnalyticsTab: React.FC = () => {
       
       for (let i = 0; i < rounds.length; i += batchSize) {
         const batch = rounds.slice(i, i + batchSize);
+        if (batch.length === 0) continue; // Skip empty batches
+        
         const batchVolume = batch.reduce((sum: bigint, r: any) => 
           sum + BigInt(r.totalUp || 0) + BigInt(r.totalDown || 0), 0n
         );
         const avgPoolSize = batchVolume / BigInt(batch.length);
+        
+        // Use actual min-max range instead of avg +/- 2
+        const roundIds = batch.map((r: any) => parseInt(r.roundId));
+        const minRound = Math.min(...roundIds);
+        const maxRound = Math.max(...roundIds);
         const avgRound = Math.floor(batch.reduce((sum: number, r: any) => sum + parseInt(r.roundId), 0) / batch.length);
         
         // Count unique participants in this batch
@@ -174,13 +217,13 @@ export const AnalyticsTab: React.FC = () => {
         });
         
         poolSizeTrendsData.push({
-          roundRange: `#${avgRound - 2}-${avgRound + 2}`,
+          roundRange: `#${minRound}-${maxRound}`,
           poolSize: parseFloat(ethers.formatEther(avgPoolSize)),
           round: avgRound,
         });
         
         participationTrendsData.push({
-          roundRange: `#${avgRound - 2}-${avgRound + 2}`,
+          roundRange: `#${minRound}-${maxRound}`,
           players: uniqueParticipants.size,
           round: avgRound,
         });
@@ -260,12 +303,12 @@ export const AnalyticsTab: React.FC = () => {
         tiePercentage: rounds.length > 0 ? (tieCount / rounds.length) * 100 : 0,
       });
 
-      // Set chart data
-      setVolumeData(volumeChartData.reverse());
-      setPoolSizeTrends(poolSizeTrendsData.reverse());
-      setParticipationTrends(participationTrendsData.reverse());
-      setEthPriceTrends(ethPriceTrendsData.reverse());
-      setBetSideTrends(betSideTrendsData.reverse());
+      // Set chart data (already in correct order: oldest to newest)
+      setVolumeData(volumeChartData);
+      setPoolSizeTrends(poolSizeTrendsData);
+      setParticipationTrends(participationTrendsData);
+      setEthPriceTrends(ethPriceTrendsData);
+      setBetSideTrends(betSideTrendsData);
       
       setResultData([
         { name: 'UP Won', value: winCount, color: '#22c55e' },
@@ -750,7 +793,11 @@ export const AnalyticsTab: React.FC = () => {
               <XAxis 
                 dataKey="roundRange" 
                 stroke={colors.textSecondary}
-                style={{ fontSize: '0.75rem' }}
+                style={{ fontSize: '0.6rem' }}
+                interval={0}
+                angle={-45}
+                textAnchor="end"
+                height={60}
               />
               <YAxis 
                 stroke={colors.textSecondary}
@@ -769,9 +816,10 @@ export const AnalyticsTab: React.FC = () => {
                 type="monotone" 
                 dataKey="poolSize" 
                 stroke="#10b981" 
-                strokeWidth={3}
+                strokeWidth={3} 
                 dot={false}
                 activeDot={false}
+                isAnimationActive={false}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -799,6 +847,7 @@ export const AnalyticsTab: React.FC = () => {
                 outerRadius={70}
                 fill="#8884d8"
                 dataKey="value"
+                isAnimationActive={false}
               >
                 {resultData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
@@ -847,6 +896,7 @@ export const AnalyticsTab: React.FC = () => {
                 outerRadius={70}
                 fill="#8884d8"
                 dataKey="value"
+                isAnimationActive={false}
               >
                 {poolData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
@@ -944,7 +994,11 @@ export const AnalyticsTab: React.FC = () => {
               <XAxis 
                 dataKey="roundRange" 
                 stroke={colors.textSecondary}
-                style={{ fontSize: '0.75rem' }}
+                style={{ fontSize: '0.6rem' }}
+                interval={0}
+                angle={-45}
+                textAnchor="end"
+                height={60}
               />
               <YAxis 
                 stroke={colors.textSecondary}
@@ -964,9 +1018,10 @@ export const AnalyticsTab: React.FC = () => {
                 type="monotone" 
                 dataKey="players" 
                 stroke="#06b6d4" 
-                strokeWidth={3}
+                strokeWidth={3} 
                 dot={false}
                 activeDot={false}
+                isAnimationActive={false}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -1001,6 +1056,7 @@ export const AnalyticsTab: React.FC = () => {
                 stroke={colors.textSecondary}
                 style={{ fontSize: '0.65rem' }}
                 angle={-45}
+                interval={0}
                 textAnchor="end"
                 height={60}
               />
@@ -1021,9 +1077,10 @@ export const AnalyticsTab: React.FC = () => {
                 dataKey="price" 
                 name="ETH Price"
                 stroke="#f59e0b" 
-                strokeWidth={3}
+                strokeWidth={3} 
                 dot={false}
                 activeDot={false}
+                isAnimationActive={false}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -1057,6 +1114,7 @@ export const AnalyticsTab: React.FC = () => {
                 dataKey="time" 
                 stroke={colors.textSecondary}
                 style={{ fontSize: '0.65rem' }}
+                interval={0}
                 angle={-45}
                 textAnchor="end"
                 height={60}
@@ -1084,8 +1142,8 @@ export const AnalyticsTab: React.FC = () => {
                 }}
                 iconType="circle"
               />
-              <Bar dataKey="upBets" name="UP Bets" fill="#22c55e" />
-              <Bar dataKey="downBets" name="DOWN Bets" fill="#ef4444" />
+              <Bar dataKey="upBets" name="UP Bets" fill="#22c55e" isAnimationActive={false} />
+              <Bar dataKey="downBets" name="DOWN Bets" fill="#ef4444" isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
         </div>

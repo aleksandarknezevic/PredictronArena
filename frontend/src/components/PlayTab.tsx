@@ -16,7 +16,6 @@ import type { Round } from '../contracts/PredictronArena';
 import { ethers } from 'ethers';
 import { apolloClient } from '../graphql/client';
 import { GET_LATEST_ROUNDS } from '../graphql/queries';
-import { gql } from '@apollo/client';
 
 export const PlayTab: React.FC = () => {
   const { contract, account, chainId, isConnected } = useWeb3();
@@ -40,7 +39,6 @@ export const PlayTab: React.FC = () => {
   };
   const [currentRound, setCurrentRound] = useState<Round | null>(null);
   const [nextRound, setNextRound] = useState<Round | null>(null);
-  const [nextRoundId, setNextRoundId] = useState<bigint>(0n);
   const [latestRoundsFromBackend, setLatestRoundsFromBackend] = useState<any[]>([]);
   const [betAmount, setBetAmount] = useState('0.01');
   const [selectedSide, setSelectedSide] = useState<Side | null>(null);
@@ -50,29 +48,7 @@ export const PlayTab: React.FC = () => {
   const [nextRoundTimeUntilStart, setNextRoundTimeUntilStart] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // Fetch latest rounds from backend (same source as HistoryTab)
-  const fetchLatestRoundsFromBackend = async () => {
-    if (chainId !== SEPOLIA_CHAIN_ID) return;
-
-    try {
-      // Get latest rounds from backend (same as HistoryTab approach)
-      const latestRoundsResult = await apolloClient.query({
-        query: GET_LATEST_ROUNDS,
-        variables: { 
-          chainId: SEPOLIA_CHAIN_ID,
-          first: 5 // Get latest 5 rounds to determine current state
-        },
-        fetchPolicy: 'network-only' // Always get fresh data
-      });
-
-      const rounds = latestRoundsResult.data.Round || [];
-      setLatestRoundsFromBackend(rounds);
-    } catch (error) {
-      console.error('Failed to fetch backend round data:', error);
-    }
-  };
-
-  // Fetch current round data from contract
+  // Fetch current round data from contract (now includes backend data fetching)
   const fetchRoundData = async (preserveScroll = false) => {
     if (!contract) return;
 
@@ -82,197 +58,120 @@ export const PlayTab: React.FC = () => {
     try {
       if (!preserveScroll) setLoading(true);
       
-      // Force fresh data by using overrides to bypass any caching
-      const [currentRoundData, nextId, price] = await Promise.all([
-        contract.getCurrentRound({ blockTag: 'latest' }),
-        contract.nextRoundId({ blockTag: 'latest' }),
-        contract.getLatestPrice({ blockTag: 'latest' })
-      ]);
-
-      // Try different methods to get next round pool information
-      let nextRoundData = null;
-      let nextRoundPoolData = null;
+      // STEP 1: Fetch fresh backend data FIRST to know which rounds to query
+      const latestRoundsResult = await apolloClient.query({
+        query: GET_LATEST_ROUNDS,
+        variables: { 
+          chainId: SEPOLIA_CHAIN_ID,
+          first: 5
+        },
+        fetchPolicy: 'network-only'
+      });
+      const freshBackendRounds = latestRoundsResult.data.Round || [];
+      setLatestRoundsFromBackend(freshBackendRounds);
       
-      try {
-        // Method 1: Try the rounds mapping
-        nextRoundData = await contract.rounds(nextId, { blockTag: 'latest' });
-      } catch (error) {
-        // Rounds mapping not available yet
-      }
-
-      try {
-        // Method 2: Try to get pool amounts directly if methods exist
-        const [totalUp, totalDown] = await Promise.all([
-          contract.roundTotalUp ? contract.roundTotalUp(nextId, { blockTag: 'latest' }) : null,
-          contract.roundTotalDown ? contract.roundTotalDown(nextId, { blockTag: 'latest' }) : null
-        ]);
+      // STEP 2: Determine which round numbers to display
+      const currentTime = Math.floor(Date.now() / 1000);
+      let currentRoundToFetch = 0;
+      let nextRoundToFetch = 0;
+      
+      if (freshBackendRounds.length > 0) {
+        const sortedRounds = [...freshBackendRounds].sort((a, b) => parseInt(b.roundId) - parseInt(a.roundId));
         
-        if (totalUp !== null && totalDown !== null) {
-          nextRoundPoolData = {
-            totalUp,
-            totalDown
-          };
-        }
-      } catch (error) {
-        // Direct pool methods not available
-      }
-
-      // Method 3: Always fetch from backend for most up-to-date pool data
-      // Backend indexer is more reliable for active betting rounds  
-      // Calculate which round we should be betting on based on backend data
-      const backendNextRoundId = latestRoundsFromBackend.length > 0
-        ? (() => {
-            const sortedRounds = [...latestRoundsFromBackend].sort((a, b) => parseInt(b.roundId) - parseInt(a.roundId));
-            const currentTime = Math.floor(Date.now() / 1000);
-            const activeRound = sortedRounds.find(r => 
-              r.startTs != null && 
-              r.startTs > 0 && 
-              currentTime >= parseInt(r.startTs) &&
-              (r.endTs == null || r.endTs === 0 || currentTime < parseInt(r.endTs))
-            );
-            if (activeRound) return parseInt(activeRound.roundId) + 1;
-            const completedRound = sortedRounds.find(r => 
-              r.endTs != null && r.endTs > 0 && currentTime >= parseInt(r.endTs)
-            );
-            if (completedRound) return parseInt(completedRound.roundId) + 1;
-            return parseInt(sortedRounds[0].roundId) + 1;
-          })()
-        : Number(nextId);
-      
-      try {
-        const backendResult = await apolloClient.query({
-          query: gql`
-            query GetRound($roundId: numeric!) {
-              Round(where: {roundId: {_eq: $roundId}}) {
-                roundId
-                totalUp
-                totalDown
-              }
-            }
-          `,
-          variables: { roundId: backendNextRoundId },
-          fetchPolicy: 'network-only'
-        });
-
-        if (backendResult.data.Round && backendResult.data.Round.length > 0) {
-          const backendRound = backendResult.data.Round[0];
-          const backendPoolData = {
-            totalUp: BigInt(backendRound.totalUp || 0),
-            totalDown: BigInt(backendRound.totalDown || 0)
-          };
-          
-          // Prefer backend data if it has values, otherwise use contract data
-          if (backendPoolData.totalUp > 0n || backendPoolData.totalDown > 0n) {
-            nextRoundPoolData = backendPoolData;
-          } else if (!nextRoundPoolData) {
-            nextRoundPoolData = backendPoolData;
+        // Find active round
+        const activeRound = sortedRounds.find(r => 
+          r.startTs != null && 
+          r.startTs > 0 && 
+          currentTime >= parseInt(r.startTs) &&
+          (r.endTs == null || r.endTs === 0 || currentTime < parseInt(r.endTs))
+        );
+        
+        if (activeRound) {
+          currentRoundToFetch = parseInt(activeRound.roundId);
+          nextRoundToFetch = currentRoundToFetch + 1;
+        } else {
+          // Find most recent completed round
+          const completedRound = sortedRounds.find(r => 
+            r.endTs != null && r.endTs > 0 && currentTime >= parseInt(r.endTs)
+          );
+          if (completedRound) {
+            currentRoundToFetch = parseInt(completedRound.roundId);
+            nextRoundToFetch = currentRoundToFetch + 1;
+          } else {
+            // Fallback to latest round in backend
+            currentRoundToFetch = parseInt(sortedRounds[0].roundId);
+            nextRoundToFetch = currentRoundToFetch + 1;
           }
         }
-      } catch (error) {
-        // Backend fetch failed, will use contract data if available
-      }
-
-      // IMPORTANT: Use backend to determine the ACTUAL current round (contract may be delayed)
-      // Calculate the actual current round from backend data (same logic as determineRoundNumbers)
-      const backendCurrentRoundId = latestRoundsFromBackend.length > 0
-        ? (() => {
-            const sortedRounds = [...latestRoundsFromBackend].sort((a, b) => parseInt(b.roundId) - parseInt(a.roundId));
-            const currentTime = Math.floor(Date.now() / 1000);
-            const activeRound = sortedRounds.find(r => 
-              r.startTs != null && 
-              r.startTs > 0 && 
-              currentTime >= parseInt(r.startTs) &&
-              (r.endTs == null || r.endTs === 0 || currentTime < parseInt(r.endTs))
-            );
-            if (activeRound) return parseInt(activeRound.roundId);
-            const completedRound = sortedRounds.find(r => 
-              r.endTs != null && r.endTs > 0 && currentTime >= parseInt(r.endTs)
-            );
-            if (completedRound) return parseInt(completedRound.roundId);
-            return parseInt(sortedRounds[0].roundId);
-          })()
-        : Number(currentRoundData[0]);
-      
-      // Fetch pool data for the ACTUAL current round from backend (most reliable for active rounds)
-      let currentRoundPoolData = null;
-      try {
-        const backendResult = await apolloClient.query({
-          query: gql`
-            query GetRound($roundId: numeric!) {
-              Round(where: {roundId: {_eq: $roundId}}) {
-                roundId
-                totalUp
-                totalDown
-              }
-            }
-          `,
-          variables: { roundId: backendCurrentRoundId },
-          fetchPolicy: 'network-only'
-        });
-
-        if (backendResult.data.Round && backendResult.data.Round.length > 0) {
-          const backendRound = backendResult.data.Round[0];
-          currentRoundPoolData = {
-            totalUp: BigInt(backendRound.totalUp || 0),
-            totalDown: BigInt(backendRound.totalDown || 0)
-          };
-        }
-      } catch (error) {
-        // Backend fetch failed
-      }
-
-
-      // Set current round - prioritize BACKEND data for pool amounts (most reliable)
-      // Contract rounds mapping data (might be stale for active rounds)
-      const contractTotalUp = currentRoundData[5];
-      const contractTotalDown = currentRoundData[6];
-      const backendTotalUp = currentRoundPoolData?.totalUp || 0n;
-      const backendTotalDown = currentRoundPoolData?.totalDown || 0n;
-      
-      // Prefer backend data if it has values, otherwise use contract data
-      const finalTotalUp = (backendTotalUp > 0n) ? backendTotalUp : contractTotalUp;
-      const finalTotalDown = (backendTotalDown > 0n) ? backendTotalDown : contractTotalDown;
-      
-      setCurrentRound({
-        id: currentRoundData[0],
-        startTs: currentRoundData[1],
-        endTs: currentRoundData[2],
-        startPrice: currentRoundData[3],
-        endPrice: currentRoundData[4],
-        totalUp: finalTotalUp,
-        totalDown: finalTotalDown,
-        winningSide: currentRoundData[7]
-      });
-      
-      // Set next round data for pool display - prioritize backend pool data for active rounds
-      if (nextRoundData || nextRoundPoolData) {
-        // For pool amounts, prefer backend data if it has values, otherwise use contract data
-        const contractTotalUp = nextRoundData ? nextRoundData[5] || 0n : 0n;
-        const contractTotalDown = nextRoundData ? nextRoundData[6] || 0n : 0n;
-        const backendTotalUp = nextRoundPoolData?.totalUp || 0n;
-        const backendTotalDown = nextRoundPoolData?.totalDown || 0n;
-        
-        // Use backend data if it has any bets, otherwise use contract data
-        const finalTotalUp = (backendTotalUp > 0n) ? backendTotalUp : contractTotalUp;
-        const finalTotalDown = (backendTotalDown > 0n) ? backendTotalDown : contractTotalDown;
-        
-        const roundData = {
-          id: nextId,
-          startTs: nextRoundData ? nextRoundData[1] || 0n : 0n,
-          endTs: nextRoundData ? nextRoundData[2] || 0n : 0n,
-          startPrice: nextRoundData ? nextRoundData[3] || 0n : 0n,
-          endPrice: nextRoundData ? nextRoundData[4] || 0n : 0n,
-          totalUp: finalTotalUp,
-          totalDown: finalTotalDown,
-          winningSide: nextRoundData ? nextRoundData[7] || 0n : 0n
-        };
-        
-        setNextRound(roundData);
       } else {
-        setNextRound(null);
+        // Fallback - assume latest round if no backend data (shouldn't happen)
+        currentRoundToFetch = 1;
+        nextRoundToFetch = 2;
       }
       
-      setNextRoundId(nextId);
+      // STEP 3: Also check backend for betting phase rounds (rounds with bets but no startTs yet)
+      const bettingPhaseRound = freshBackendRounds.find((r: any) =>
+        (r.totalUp && BigInt(r.totalUp) > 0n) || (r.totalDown && BigInt(r.totalDown) > 0n)
+      );
+      
+      // If there's a betting phase round with a higher ID than currentRoundToFetch, use it as next
+      if (bettingPhaseRound) {
+        const bettingRoundId = parseInt(bettingPhaseRound.roundId);
+        if (bettingRoundId > currentRoundToFetch) {
+          nextRoundToFetch = bettingRoundId;
+        }
+      }
+      
+      // STEP 4: Use ONLY backend data - contract calls keep failing
+      const currentBackendRound = freshBackendRounds.find((r: any) => parseInt(r.roundId) === currentRoundToFetch);
+      const nextBackendRound = freshBackendRounds.find((r: any) => parseInt(r.roundId) === nextRoundToFetch);
+      
+      // Get price with multiple fallback strategies
+      let price = 0n;
+      try {
+        price = await contract.getLatestPrice();
+      } catch (err) {
+        console.warn('Failed to get price from contract, trying fallback');
+        // Fallback 1: Use price from backend round data
+        if (currentBackendRound?.endPrice && BigInt(currentBackendRound.endPrice) > 0n) {
+          price = BigInt(currentBackendRound.endPrice);
+        } else if (currentBackendRound?.startPrice && BigInt(currentBackendRound.startPrice) > 0n) {
+          price = BigInt(currentBackendRound.startPrice);
+        } else if (nextBackendRound?.startPrice && BigInt(nextBackendRound.startPrice) > 0n) {
+          price = BigInt(nextBackendRound.startPrice);
+        }
+        // Fallback 2: Keep previous price if we have one
+        if (price === 0n && currentPrice > 0n) {
+          price = currentPrice;
+        }
+      }
+      
+      // STEP 5: Build round objects using ONLY backend data
+      const currentRoundObj = {
+        id: BigInt(currentRoundToFetch),
+        startTs: currentBackendRound?.startTs ? BigInt(currentBackendRound.startTs) : 0n,
+        endTs: currentBackendRound?.endTs ? BigInt(currentBackendRound.endTs) : 0n,
+        startPrice: currentBackendRound?.startPrice ? BigInt(currentBackendRound.startPrice) : 0n,
+        endPrice: currentBackendRound?.endPrice ? BigInt(currentBackendRound.endPrice) : 0n,
+        totalUp: currentBackendRound?.totalUp ? BigInt(currentBackendRound.totalUp) : 0n,
+        totalDown: currentBackendRound?.totalDown ? BigInt(currentBackendRound.totalDown) : 0n,
+        winningSide: currentBackendRound?.result || 0
+      };
+      
+      const nextRoundData = {
+        id: BigInt(nextRoundToFetch),
+        startTs: nextBackendRound?.startTs ? BigInt(nextBackendRound.startTs) : 0n,
+        endTs: nextBackendRound?.endTs ? BigInt(nextBackendRound.endTs) : 0n,
+        startPrice: nextBackendRound?.startPrice ? BigInt(nextBackendRound.startPrice) : 0n,
+        endPrice: nextBackendRound?.endPrice ? BigInt(nextBackendRound.endPrice) : 0n,
+        totalUp: nextBackendRound?.totalUp ? BigInt(nextBackendRound.totalUp) : 0n,
+        totalDown: nextBackendRound?.totalDown ? BigInt(nextBackendRound.totalDown) : 0n,
+        winningSide: nextBackendRound?.result || 0
+      };
+      
+      setCurrentRound(currentRoundObj);
+      setNextRound(nextRoundData);
+      
       setCurrentPrice(price);
 
       // Restore scroll position after a brief delay
@@ -311,101 +210,36 @@ export const PlayTab: React.FC = () => {
   // Fetch data on component mount and when contract changes
   useEffect(() => {
     if (contract && chainId === SEPOLIA_CHAIN_ID) {
-      fetchLatestRoundsFromBackend();
       fetchRoundData();
     }
   }, [contract, chainId, account]);
 
-  // Determine current and next round numbers from backend data (same logic as HistoryTab)
-  const determineRoundNumbers = () => {
-    if (latestRoundsFromBackend.length === 0) {
-      // Fallback to contract data if no backend data
-      return {
-        currentRoundNumber: Number(currentRound?.id || 0),
-        nextRoundNumber: Number(nextRoundId || 0),
-        hasActiveRound: currentRound && currentRound.startTs > 0n && currentRound.endTs === 0n
-      };
-    }
-
-    // Sort rounds by roundId to get latest
-    const sortedRounds = [...latestRoundsFromBackend].sort((a, b) => parseInt(b.roundId) - parseInt(a.roundId));
-    const currentTime = Math.floor(Date.now() / 1000);
-    
-    // Find the actually active round (startTs exists and in past, endTs is null or in future)
-    const activeRound = sortedRounds.find(r => 
-      r.startTs != null && 
-      r.startTs > 0 && 
-      currentTime >= parseInt(r.startTs) &&
-      (r.endTs == null || r.endTs === 0 || currentTime < parseInt(r.endTs))
-    );
-    
-    if (activeRound) {
-      // Found an active round
-      const activeRoundNumber = parseInt(activeRound.roundId);
-      return {
-        currentRoundNumber: activeRoundNumber,
-        nextRoundNumber: activeRoundNumber + 1,
-        hasActiveRound: true
-      };
-    }
-    
-    // No active round - find the most recent completed round
-    const completedRound = sortedRounds.find(r => 
-      r.endTs != null && r.endTs > 0 && currentTime >= parseInt(r.endTs)
-    );
-    
-    if (completedRound) {
-      const completedRoundNumber = parseInt(completedRound.roundId);
-      return {
-        currentRoundNumber: completedRoundNumber,
-        nextRoundNumber: completedRoundNumber + 1,
-        hasActiveRound: false
-      };
-    }
-    
-    // Fallback to latest round
-    const latestRound = sortedRounds[0];
-    const latestRoundNumber = parseInt(latestRound.roundId);
-    return {
-      currentRoundNumber: latestRoundNumber,
-      nextRoundNumber: latestRoundNumber + 1,
-      hasActiveRound: false
-    };
-  };
-
-  const { currentRoundNumber, nextRoundNumber, hasActiveRound } = determineRoundNumbers();
+  // Use the round IDs directly from the fetched state to ensure consistency
+  // Fallback to latest backend data while loading
+  const currentRoundNumber = currentRound?.id 
+    ? Number(currentRound.id)
+    : (latestRoundsFromBackend.length > 0 
+        ? parseInt(latestRoundsFromBackend[0].roundId) 
+        : 0);
   
-  // Use backend data to determine round status (same as HistoryTab)
-  const noActiveRoundStatus = !hasActiveRound; // Based on backend data
+  const nextRoundNumber = nextRound?.id 
+    ? Number(nextRound.id)
+    : (currentRoundNumber > 0 ? currentRoundNumber + 1 : 0);
+  
+  const hasActiveRound = currentRound && currentRound.startTs > 0n && currentRound.endTs === 0n;
 
-  // Auto-refresh data - less frequently to avoid scroll disruption
-  useEffect(() => {
-    if (!contract || chainId !== SEPOLIA_CHAIN_ID) return;
+  // DISABLED: Auto-refresh causes MetaMask circuit breaker
+  // User can manually refresh the page to update data
+  // useEffect(() => {
+  //   if (!contract || chainId !== SEPOLIA_CHAIN_ID) return;
+  //   const refreshInterval = 15000;
+  //   const interval = setInterval(() => {
+  //     fetchRoundData(true);
+  //   }, refreshInterval);
+  //   return () => clearInterval(interval);
+  // }, [contract, chainId, account, currentRound, noActiveRoundStatus]);
 
-    // Refresh every 3 seconds for faster bet pool updates
-    const refreshInterval = 3000;
-    const interval = setInterval(() => {
-      fetchLatestRoundsFromBackend();
-      fetchRoundData(true); // Preserve scroll position during auto-refresh (includes price update)
-    }, refreshInterval);
-    return () => clearInterval(interval);
-  }, [contract, chainId, account, currentRound, noActiveRoundStatus]);
-
-  // Dedicated price refresh - more frequent to show real-time price
-  useEffect(() => {
-    if (!contract || chainId !== SEPOLIA_CHAIN_ID) return;
-
-    const priceInterval = setInterval(async () => {
-      try {
-        const price = await contract.getLatestPrice({ blockTag: 'latest' });
-        setCurrentPrice(price);
-      } catch (error) {
-        console.error('Failed to fetch price:', error);
-      }
-    }, 5000); // Update price every 5 seconds
-
-    return () => clearInterval(priceInterval);
-  }, [contract, chainId]);
+  // Price is already fetched in fetchRoundData every 3 seconds - no need for separate refresh
 
   const placeBet = async () => {
     if (!contract || !selectedSide || !account) return;
@@ -419,21 +253,35 @@ export const PlayTab: React.FC = () => {
     setIsPlacingBet(true);
     try {
       // Place bet on next round determined from backend data
-      const tx = await contract.placeBet(selectedSide, { value: betAmountWei });
+      const tx = await contract.placeBet(selectedSide, { 
+        value: betAmountWei,
+        gasLimit: 200000 // Set explicit gas limit to avoid estimation calls
+      });
       await tx.wait();
+      
+      alert('Bet placed successfully! ✅');
       
       // Refresh data after successful bet
       // Wait a moment for the blockchain state to update
       setTimeout(async () => {
         await fetchRoundData();
-        await fetchLatestRoundsFromBackend();
-      }, 1000);
+      }, 2000);
       
       setSelectedSide(null);
       setBetAmount('0.01');
     } catch (error: any) {
       console.error('Failed to place bet:', error);
-      alert(`Failed to place bet: ${error.message || 'Unknown error'}`);
+      
+      // Handle specific errors
+      if (error.code === 'ACTION_REJECTED' || error.code === 4001) {
+        alert('Transaction cancelled by user');
+      } else if (error.message?.includes('circuit breaker')) {
+        alert('MetaMask rate limit reached. Please wait 30 seconds and try again.');
+      } else if (error.message?.includes('insufficient funds')) {
+        alert('Insufficient ETH balance');
+      } else {
+        alert(`Failed to place bet: ${error.shortMessage || error.message || 'Unknown error'}`);
+      }
     } finally {
       setIsPlacingBet(false);
     }
@@ -483,7 +331,7 @@ export const PlayTab: React.FC = () => {
       </div>
     );
   }
-
+  
   // Use the backend-calculated round status
   const noActiveRound = !hasActiveRound;
   const canBetOnNextRound = true; // Can always bet on next round
@@ -534,7 +382,7 @@ export const PlayTab: React.FC = () => {
             {formatPrice(currentPrice)}
           </div>
           <div style={{ fontSize: '0.7rem', color: colors.textSecondary }}>Chainlink</div>
-        </div>
+      </div>
 
         {/* Round Status - Compact Side-by-Side */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
@@ -550,7 +398,7 @@ export const PlayTab: React.FC = () => {
             padding: '0.75rem 1rem'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.5rem' }}>
-              {noActiveRound ? (
+            {noActiveRound ? (
                 <CheckCircle style={{ width: '1rem', height: '1rem', color: colors.textSecondary }} />
               ) : (
                 <Activity style={{ width: '1rem', height: '1rem', color: '#f97316' }} />
@@ -579,7 +427,7 @@ export const PlayTab: React.FC = () => {
                     <span style={{ fontFamily: 'monospace', fontWeight: '700', color: colors.text }}>
                       {formatPrice(currentRound.startPrice)}
                     </span>
-                  </div>
+            </div>
                 )}
                 {noActiveRound && currentRound.endPrice && currentRound.endPrice > 0n && (
                   <div>
@@ -587,9 +435,9 @@ export const PlayTab: React.FC = () => {
                     <span style={{ fontFamily: 'monospace', fontWeight: '700', color: colors.text }}>
                       {formatPrice(currentRound.endPrice)}
                     </span>
-                  </div>
-                )}
               </div>
+                )}
+            </div>
             )}
             
             {/* Pool info for current round - Show if there are any bets */}
@@ -607,21 +455,21 @@ export const PlayTab: React.FC = () => {
                   <div style={{ color: colors.textSecondary, marginBottom: '0.125rem' }}>UP</div>
                   <div style={{ fontFamily: 'monospace', fontWeight: '700', color: '#22c55e' }}>
                     {formatEther(currentRound.totalUp)}
-                  </div>
-                </div>
+          </div>
+        </div>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ color: colors.textSecondary, marginBottom: '0.125rem' }}>DOWN</div>
                   <div style={{ fontFamily: 'monospace', fontWeight: '700', color: '#ef4444' }}>
                     {formatEther(currentRound.totalDown)}
-                  </div>
-                </div>
+            </div>
+            </div>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ color: colors.textSecondary, marginBottom: '0.125rem' }}>TOTAL</div>
                   <div style={{ fontFamily: 'monospace', fontWeight: '700', color: colors.text }}>
                     {formatEther(currentRound.totalUp + currentRound.totalDown)}
-                  </div>
-                </div>
+            </div>
               </div>
+            </div>
             )}
           </div>
 
@@ -637,14 +485,14 @@ export const PlayTab: React.FC = () => {
               <span style={{ fontSize: '0.75rem', fontWeight: '700', color: colors.text }}>
                 ROUND #{nextRoundNumber}
               </span>
-            </div>
+        </div>
             <div style={{ fontSize: '0.75rem', color: '#22c55e', marginBottom: '0.25rem' }}>
               🟢 OPEN
             </div>
             <div style={{ fontSize: '0.875rem', fontFamily: 'monospace', fontWeight: '700', color: '#22c55e', marginBottom: '0.5rem' }}>
               {formatTime(nextRoundTimeUntilStart)}
-            </div>
-            
+      </div>
+
             {/* Pool info merged - only show if there are bets */}
             {nextRound && (nextRound.totalUp > 0n || nextRound.totalDown > 0n) && (
               <div style={{ 
@@ -659,21 +507,21 @@ export const PlayTab: React.FC = () => {
                   <div style={{ color: colors.textSecondary, marginBottom: '0.125rem' }}>UP</div>
                   <div style={{ fontFamily: 'monospace', fontWeight: '700', color: '#22c55e' }}>
                     {formatEther(nextRound.totalUp)}
-                  </div>
-                </div>
+          </div>
+            </div>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ color: colors.textSecondary, marginBottom: '0.125rem' }}>DOWN</div>
                   <div style={{ fontFamily: 'monospace', fontWeight: '700', color: '#ef4444' }}>
                     {formatEther(nextRound.totalDown)}
-                  </div>
-                </div>
+          </div>
+            </div>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ color: colors.textSecondary, marginBottom: '0.125rem' }}>TOTAL</div>
                   <div style={{ fontFamily: 'monospace', fontWeight: '700', color: colors.text }}>
                     {formatEther(nextRound.totalUp + nextRound.totalDown)}
-                  </div>
-                </div>
-              </div>
+          </div>
+            </div>
+          </div>
             )}
             {(!nextRound || (nextRound.totalUp === 0n && nextRound.totalDown === 0n)) && (
               <div style={{ 
