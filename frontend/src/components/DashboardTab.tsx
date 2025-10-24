@@ -397,6 +397,24 @@ export const DashboardTab: React.FC = () => {
   });
   const finishedRoundsCount = roundsMap.size;
 
+  // Calculate stats for ENDED rounds only
+  const totalInvestedEnded = betHistory.reduce((sum, bet) => {
+    if (bet.round && bet.round.endTs !== null && bet.round.endTs !== undefined && bet.round.endTs !== "0") {
+      const betAmount = BigInt(bet.userBet.upAmount || '0') + BigInt(bet.userBet.downAmount || '0');
+      return sum + betAmount;
+    }
+    return sum;
+  }, 0n);
+
+  const totalNetPnlEnded = betHistory.reduce((sum, bet) => {
+    if (bet.round && bet.round.endTs !== null && bet.round.endTs !== undefined && bet.round.endTs !== "0") {
+      return sum + BigInt(bet.netPnl || '0');
+    }
+    return sum;
+  }, 0n);
+
+  const totalReturnedEnded = totalInvestedEnded + totalNetPnlEnded;
+
   return (
     <div className="space-y-3">
       {/* STATS SECTION */}
@@ -452,17 +470,23 @@ export const DashboardTab: React.FC = () => {
             <div style={{ textAlign: 'center' }}>
               <Target style={{ width: '1.5rem', height: '1.5rem', color: '#f97316', margin: '0 auto 0.25rem' }} />
               <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#f97316', fontFamily: 'monospace' }}>
-                {formatEther(userStats.totalBet)}
+                {formatEther(totalInvestedEnded.toString())}
               </div>
               <div style={{ fontSize: '0.7rem', color: colors.textSecondary }}>Invested</div>
+              <div style={{ fontSize: '0.65rem', color: colors.textSecondary, marginTop: '0.125rem' }}>
+                (ended rounds)
+              </div>
             </div>
             
             <div style={{ textAlign: 'center' }}>
               <Zap style={{ width: '1.5rem', height: '1.5rem', color: '#c084fc', margin: '0 auto 0.25rem' }} />
               <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#c084fc', fontFamily: 'monospace' }}>
-                {formatEther((BigInt(userStats.totalBet) + BigInt(userStats.totalNetPnl)).toString())}
+                {formatEther(totalReturnedEnded.toString())}
               </div>
               <div style={{ fontSize: '0.7rem', color: colors.textSecondary }}>Returned</div>
+              <div style={{ fontSize: '0.65rem', color: colors.textSecondary, marginTop: '0.125rem' }}>
+                (ended rounds)
+              </div>
             </div>
           </div>
           
@@ -476,16 +500,16 @@ export const DashboardTab: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <span style={{ fontSize: '0.875rem', color: colors.textSecondary }}>Net P&L:</span>
               <span style={{ fontSize: '0.75rem', color: colors.textSecondary }}>
-                ({formatEther((BigInt(userStats.totalBet) + BigInt(userStats.totalNetPnl)).toString())} - {formatEther(userStats.totalBet)})
+                ({formatEther(totalReturnedEnded.toString())} - {formatEther(totalInvestedEnded.toString())})
               </span>
             </div>
             <div style={{ 
               fontSize: '1.75rem', 
               fontWeight: '900', 
               fontFamily: 'monospace',
-              color: BigInt(userStats.totalNetPnl) >= 0n ? '#22c55e' : '#ef4444'
+              color: totalNetPnlEnded >= 0n ? '#22c55e' : '#ef4444'
             }}>
-              {BigInt(userStats.totalNetPnl) >= 0n ? '+' : ''}{formatEther(userStats.totalNetPnl)} ETH
+              {totalNetPnlEnded >= 0n ? '+' : ''}{formatEther(totalNetPnlEnded.toString())} ETH
             </div>
           </div>
 
